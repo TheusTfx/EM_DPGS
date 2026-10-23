@@ -11,7 +11,8 @@ app = Flask(__name__)
 
 DATABASE_URL = os.environ.get('DATABASE_URL')
 
-SITUACOES = ['Aguardando', 'Empenhado', 'Em execução', 'Pago', 'Cancelada']
+# "Em execução" foi removida — só Aguardando, Empenhado, Pago, Cancelada
+SITUACOES = ['Aguardando', 'Empenhado', 'Pago', 'Cancelada']
 
 
 # ============================================================
@@ -54,7 +55,6 @@ def init_db():
                 )
             ''')
 
-            # Colunas adicionadas em migrações
             novas_colunas = [
                 ('secretaria', 'TEXT'),
                 ('lider', 'TEXT'),
@@ -70,7 +70,6 @@ def init_db():
             for col, tipo in novas_colunas:
                 cur.execute(f"ALTER TABLE emendas ADD COLUMN IF NOT EXISTS {col} {tipo}")
 
-            # Constraint UNIQUE (ano, numero_emenda) — necessária pro upsert
             cur.execute("""
                 SELECT 1 FROM pg_constraint WHERE conname = 'emendas_ano_numero_key'
             """)
@@ -108,7 +107,7 @@ def handle_exception(e):
 
 
 # ============================================================
-# ROTAS EXISTENTES (inalteradas)
+# ROTAS CRUD
 # ============================================================
 @app.route('/')
 def index():
@@ -176,16 +175,16 @@ def criar_emenda():
             cur.execute('''
                 INSERT INTO emendas
                   (numero_emenda, ano, municipio, objeto, valor_empenhado, valor_pago, situacao, observacoes,
-                   secretaria, lider, oficio, referencia, entidade, cnpj, regiao, numero_e,
+                   secretaria, lider, oficio, referencia, entidade, cnpj, regiao, numero_e, justificativa,
                    atualizado_por, atualizado_em)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'gabinete', %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'gabinete', %s)
                 RETURNING id
             ''', (
                 d['numero_emenda'].strip(), int(d['ano']), d['municipio'].strip(), (d.get('objeto') or '').strip(),
                 float(d.get('valor_empenhado') or 0), float(d.get('valor_pago') or 0), d.get('situacao', 'Aguardando'), (d.get('observacoes') or '').strip(),
                 (d.get('secretaria') or '').strip(), (d.get('lider') or '').strip(), (d.get('oficio') or '').strip(),
                 (d.get('referencia') or '').strip(), (d.get('entidade') or '').strip(), (d.get('cnpj') or '').strip(),
-                (d.get('regiao') or '').strip(), (d.get('numero_e') or '').strip(),
+                (d.get('regiao') or '').strip(), (d.get('numero_e') or '').strip(), (d.get('justificativa') or '').strip(),
                 datetime.now().isoformat(timespec='seconds'),
             ))
             new_id = cur.fetchone()['id']
@@ -216,7 +215,8 @@ def atualizar_emenda(eid):
                 UPDATE emendas SET
                   numero_emenda = %s, ano = %s, municipio = %s, objeto = %s, valor_empenhado = %s, valor_pago = %s,
                   situacao = %s, observacoes = %s, secretaria = %s, lider = %s, oficio = %s, referencia = %s,
-                  entidade = %s, cnpj = %s, regiao = %s, numero_e = %s, versao = versao + 1, atualizado_por = 'gabinete', atualizado_em = %s
+                  entidade = %s, cnpj = %s, regiao = %s, numero_e = %s, justificativa = %s,
+                  versao = versao + 1, atualizado_por = 'gabinete', atualizado_em = %s
                 WHERE id = %s
             ''', (
                 d.get('numero_emenda', row['numero_emenda']), int(d.get('ano') or row['ano']), d.get('municipio', row['municipio']),
@@ -224,7 +224,7 @@ def atualizar_emenda(eid):
                 d.get('situacao', 'Aguardando'), (d.get('observacoes') or '').strip(),
                 (d.get('secretaria') or '').strip(), (d.get('lider') or '').strip(), (d.get('oficio') or '').strip(),
                 (d.get('referencia') or '').strip(), (d.get('entidade') or '').strip(), (d.get('cnpj') or '').strip(),
-                (d.get('regiao') or '').strip(), (d.get('numero_e') or '').strip(),
+                (d.get('regiao') or '').strip(), (d.get('numero_e') or '').strip(), (d.get('justificativa') or '').strip(),
                 datetime.now().isoformat(timespec='seconds'), eid,
             ))
         db.commit()
@@ -255,7 +255,7 @@ def filtros():
 
 
 # ============================================================
-# IMPORTAÇÃO DE PLANILHAS
+# IMPORTAÇÃO
 # ============================================================
 MAPA_2026 = {
     "SITUAÇÃO":      "situacao_bruta",
@@ -280,7 +280,6 @@ ABAS_CONFIGURADAS = {
 
 
 def _txt(v):
-    """Converte qualquer valor de célula em texto limpo ou None."""
     if v is None:
         return None
     try:
@@ -298,7 +297,9 @@ def _txt(v):
 
 
 def _derivar_situacao(texto_bruto):
-    """Converte 'PAGO', 'Aguardando retorno...', etc. para o ENUM da app."""
+    """Mapeia o texto livre da planilha para o ENUM da app.
+    'Em execução' foi eliminada — tudo que não é Pago/Cancelada/Liquidada vira Aguardando.
+    """
     if not texto_bruto:
         return "Aguardando"
     t = str(texto_bruto).upper()
@@ -308,13 +309,10 @@ def _derivar_situacao(texto_bruto):
         return "Cancelada"
     if "LIQUIDA" in t:
         return "Empenhado"
-    if "TRAMITA" in t or "EXECU" in t:
-        return "Em execução"
     return "Aguardando"
 
 
 def _processar_dataframe(aba):
-    """Lê a aba do Excel e devolve (registros, colunas, ignoradas)."""
     mapa = ABAS_CONFIGURADAS[aba]
 
     arquivo = request.files.get('arquivo')
@@ -427,7 +425,6 @@ def importar():
             f'{c} = EXCLUDED.{c}' for c in colunas
             if c not in ('numero_emenda', 'ano', 'valor_pago')
         )
-        # valor_pago: preserva o maior (nunca "desmarca" pagamento já registrado)
         updates_sql = (
             f"{updates_normais}, "
             "valor_pago = GREATEST(emendas.valor_pago, EXCLUDED.valor_pago), "
