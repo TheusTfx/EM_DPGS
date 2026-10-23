@@ -30,7 +30,8 @@ def init_db():
     if not DATABASE_URL:
         print("AVISO: DATABASE_URL nao configurada.")
         return
-    with get_db() as conn:
+    conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
+    try:
         with conn.cursor() as cur:
             cur.execute('''
                 CREATE TABLE IF NOT EXISTS emendas (
@@ -48,11 +49,13 @@ def init_db():
                     atualizado_em TEXT
                 )
             ''')
-            # PostgreSQL suporta ADD COLUMN IF NOT EXISTS nativamente
             cur.execute("ALTER TABLE emendas ADD COLUMN IF NOT EXISTS versao INTEGER DEFAULT 1")
             cur.execute("ALTER TABLE emendas ADD COLUMN IF NOT EXISTS atualizado_por TEXT")
             cur.execute("ALTER TABLE emendas ADD COLUMN IF NOT EXISTS atualizado_em TEXT")
-            conn.commit()
+        conn.commit()
+        print("Banco inicializado.")
+    finally:
+        conn.close()
 
 # Inicializa o banco ao importar (comum no PythonAnywhere/Render)
 init_db()
