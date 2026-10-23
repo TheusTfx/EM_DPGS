@@ -153,7 +153,6 @@ tbody tr:hover .row-actions { opacity: 1; }
     <div class="kpi"><div class="kpi-label">Total de emendas</div><div class="kpi-value" id="kpi-total">—</div></div>
     <div class="kpi"><div class="kpi-label">Valor empenhado</div><div class="kpi-value small" id="kpi-empenhado">—</div></div>
     <div class="kpi"><div class="kpi-label">Valor pago</div><div class="kpi-value small" id="kpi-pago">—</div></div>
-    <div class="kpi"><div class="kpi-label">Em execução</div><div class="kpi-value" id="kpi-execucao">—</div></div>
   </section>
 
   <section class="toolbar">
@@ -238,7 +237,7 @@ tbody tr:hover .row-actions { opacity: 1; }
             <div class="form-group full"><label>Objeto</label><input type="text" id="f-objeto"></div>
             <div class="form-group"><label>Situação</label>
               <select id="f-situacao">
-                <option>Aguardando</option><option>Empenhado</option><option>Em execução</option><option>Pago</option><option>Cancelada</option>
+                <option>Aguardando</option><option>Empenhado</option><option>Pago</option><option>Cancelada</option>
               </select>
             </div>
             <div class="form-group"><label>Valor Empenhado (R$)</label><input type="number" step="0.01" id="f-empenhado"></div>
@@ -471,7 +470,6 @@ function atualizarKPIs() {
   const total = emendasCache.length;
   const empenhado = emendasCache.reduce((s, e) => s + (Number(e.valor_empenhado) || 0), 0);
   const pago = emendasCache.reduce((s, e) => s + (Number(e.valor_pago) || 0), 0);
-  const execucao = emendasCache.filter(e => (e.situacao || '').toLowerCase() === 'em execução').length;
   document.getElementById('kpi-total').textContent = total;
   document.getElementById('kpi-empenhado').textContent = fmtMoney(empenhado);
   document.getElementById('kpi-pago').textContent = fmtMoney(pago);
