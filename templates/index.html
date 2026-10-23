@@ -22,7 +22,6 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
 .header-inner { max-width: 1280px; margin: 0 auto; padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .brand { display: flex; flex-direction: column; line-height: 1.2; }
 .brand-title { font-weight: 600; font-size: 16px; letter-spacing: -.01em; }
-.brand-sub { font-size: 12px; color: #bfdbfe; margin-top: 2px; }
 .header-actions { display: flex; gap: 8px; }
 .header-actions .btn-ghost { background: transparent; color: #fff; border-color: rgba(255,255,255,.3); }
 .header-actions .btn-ghost:hover { background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.5); }
@@ -62,7 +61,12 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
 table { width: 100%; border-collapse: collapse; min-width: 1100px; }
 thead th { text-align: left; padding: 10px 18px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); background: #f8fafc; border-bottom: 1px solid var(--border); white-space: nowrap; }
 thead th.right { text-align: right; }
-tbody tr { border-bottom: 1px solid var(--border-light); transition: background .1s; }
+thead th.sortable { cursor: pointer; user-select: none; transition: background .12s; }
+thead th.sortable:hover { background: #e2e8f0; color: var(--text); }
+thead th.sortable::after { content: '⇅'; margin-left: 5px; font-size: 10px; opacity: .35; }
+thead th.sorted-desc::after { content: '▼'; opacity: 1; color: var(--primary); }
+thead th.sorted-asc::after  { content: '▲'; opacity: 1; color: var(--primary); }
+tbody tr { border-bottom: 1px solid var(--border-light); transition: background .1s; cursor: pointer; }
 tbody tr:last-child { border-bottom: none; }
 tbody tr:hover { background: #f8fafc; }
 tbody td { padding: 12px 18px; vertical-align: middle; }
@@ -78,14 +82,12 @@ tbody tr:hover .row-actions { opacity: 1; }
 .status { display: inline-block; padding: 2px 8px; font-size: 11.5px; font-weight: 500; border: 1px solid transparent; border-radius: 2px; }
 .status-aguardando { background: var(--neutral-bg); color: var(--neutral); border-color: #cbd5e1; }
 .status-empenhado  { background: var(--warning-bg); color: var(--warning); border-color: #fde68a; }
-.status-em-execucao { background: var(--info-bg); color: var(--info); border-color: #bfdbfe; }
 .status-pago       { background: var(--success-bg); color: var(--success); border-color: #bbf7d0; }
 .status-cancelada  { background: var(--danger-bg); color: var(--danger); border-color: #fecaca; }
 
 .empty { padding: 60px 24px; text-align: center; color: var(--text-muted); }
 .empty-icon { width: 44px; height: 44px; margin: 0 auto 14px; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; color: var(--text-subtle); }
 .empty-title { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
-.empty-desc { font-size: 13px; }
 
 .modal-overlay { position: fixed; inset: 0; background: rgba(15,23,42,.5); z-index: 100; display: none; align-items: flex-start; justify-content: center; padding: 40px 16px; overflow-y: auto; }
 .modal-overlay.open { display: flex; }
@@ -107,6 +109,18 @@ tbody tr:hover .row-actions { opacity: 1; }
 .form-group input, .form-group select, .form-group textarea { padding: 8px 10px; border: 1px solid var(--border); background: var(--surface); outline: none; transition: border-color .12s; width: 100%; color: var(--text); text-transform: uppercase; }
 .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--primary); }
 .form-group textarea { resize: vertical; min-height: 70px; }
+.form-group textarea.keep-case { text-transform: none; }
+
+/* Ficha (visualização) */
+.ficha-section { margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid var(--border-light); }
+.ficha-section:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+.ficha-section-title { font-size: 11px; font-weight: 700; color: var(--primary); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 10px; }
+.ficha-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.ficha-field { display: flex; flex-direction: column; gap: 3px; }
+.ficha-field.full { grid-column: 1 / -1; margin-bottom: 4px; }
+.ficha-field label { font-size: 11px; font-weight: 500; color: var(--text-muted); text-transform: uppercase; letter-spacing: .03em; }
+.ficha-field div { font-size: 13.5px; color: var(--text); }
+.ficha-field div.pre { white-space: pre-wrap; line-height: 1.5; }
 
 .toast { position: fixed; bottom: 20px; right: 20px; background: var(--surface); border: 1px solid var(--border); padding: 10px 14px; font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 8px; z-index: 200; transform: translateY(20px); opacity: 0; transition: all .2s ease-out; pointer-events: none; max-width: 340px; }
 .toast.show { transform: translateY(0); opacity: 1; }
@@ -115,12 +129,13 @@ tbody tr:hover .row-actions { opacity: 1; }
 .toast-error { border-left: 3px solid var(--danger); }
 .toast-error .toast-icon { color: var(--danger); }
 
-@media (max-width: 900px) { .kpis { grid-template-columns: repeat(2, 1fr); } .form-grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 900px) { .kpis { grid-template-columns: repeat(2, 1fr); } .form-grid { grid-template-columns: 1fr 1fr; } .ficha-grid { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 640px) {
   .container { padding: 16px; } .header-inner { padding: 12px 16px; }
   .kpis { grid-template-columns: 1fr 1fr; gap: 8px; } .kpi { padding: 12px; } .kpi-value { font-size: 16px; }
   .toolbar { padding: 10px; gap: 8px; } .filter-select { min-width: 0; flex: 1; }
   .form-grid { grid-template-columns: 1fr; } .form-group.span-2 { grid-column: 1; }
+  .ficha-grid { grid-template-columns: 1fr; }
   thead { display: none; } tbody tr { display: block; padding: 12px 0; border-bottom: 2px solid var(--border); }
   tbody td { display: block; padding: 4px 16px; border: none; }
   .cell-value, .cell-actions { text-align: left; } .row-actions { opacity: 1; justify-content: flex-start; margin-top: 8px; }
@@ -177,12 +192,12 @@ tbody tr:hover .row-actions { opacity: 1; }
       <table>
         <thead>
           <tr>
-            <th>Emenda</th>
-            <th>Município / Região</th>
-            <th>Entidade / CNPJ</th>
-            <th>Objeto</th>
-            <th class="right">Valores</th>
-            <th>Situação</th>
+            <th class="sortable" data-sort="numero_emenda">Emenda</th>
+            <th class="sortable" data-sort="municipio">Município / Região</th>
+            <th class="sortable" data-sort="entidade">Entidade / CNPJ</th>
+            <th class="sortable" data-sort="objeto">Objeto</th>
+            <th class="sortable right" data-sort="valor_empenhado">Valores</th>
+            <th class="sortable" data-sort="situacao">Situação</th>
             <th class="right">Ações</th>
           </tr>
         </thead>
@@ -198,6 +213,31 @@ tbody tr:hover .row-actions { opacity: 1; }
   </section>
 </main>
 
+<!-- ============================================================ -->
+<!-- MODAL: FICHA (visualização) -->
+<!-- ============================================================ -->
+<div class="modal-overlay" id="modal-ficha">
+  <div class="modal" style="max-width: 760px;">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="ficha-titulo">Emenda</div>
+        <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;" id="ficha-sub"></div>
+      </div>
+      <button class="btn-icon" onclick="fecharFicha()" aria-label="Fechar">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body" id="ficha-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="fecharFicha()">Fechar</button>
+      <button class="btn btn-primary" onclick="editarDaFicha()">Editar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- MODAL: FORMULÁRIO (criar/editar) -->
+<!-- ============================================================ -->
 <div class="modal-overlay" id="modal-overlay">
   <div class="modal">
     <div class="modal-header">
@@ -239,6 +279,10 @@ tbody tr:hover .row-actions { opacity: 1; }
           <div class="form-section-title">Detalhes</div>
           <div class="form-grid">
             <div class="form-group full"><label>Objeto</label><input type="text" id="f-objeto"></div>
+            <div class="form-group full">
+              <label>Justificativa</label>
+              <textarea id="f-justificativa" rows="5" class="keep-case" style="min-height: 110px;"></textarea>
+            </div>
             <div class="form-group"><label>Situação</label>
               <select id="f-situacao">
                 <option>Aguardando</option><option>Empenhado</option><option>Pago</option><option>Cancelada</option>
@@ -246,7 +290,7 @@ tbody tr:hover .row-actions { opacity: 1; }
             </div>
             <div class="form-group"><label>Valor Empenhado (R$)</label><input type="number" step="0.01" id="f-empenhado"></div>
             <div class="form-group"><label>Valor Pago (R$)</label><input type="number" step="0.01" id="f-pago"></div>
-            <div class="form-group full"><label>Observações</label><textarea id="f-observacoes"></textarea></div>
+            <div class="form-group full"><label>Observações</label><textarea id="f-observacoes" class="keep-case"></textarea></div>
           </div>
         </div>
       </div>
@@ -258,6 +302,9 @@ tbody tr:hover .row-actions { opacity: 1; }
   </div>
 </div>
 
+<!-- ============================================================ -->
+<!-- MODAL: IMPORTAR -->
+<!-- ============================================================ -->
 <div class="modal-overlay" id="modal-importar">
   <div class="modal" style="max-width: 620px;">
     <div class="modal-header">
@@ -270,20 +317,16 @@ tbody tr:hover .row-actions { opacity: 1; }
       <div class="form-grid">
         <div class="form-group">
           <label>Aba do Excel</label>
-          <select id="imp-aba">
-            <option value="2026">2026</option>
-          </select>
+          <select id="imp-aba"><option value="2026">2026</option></select>
         </div>
         <div class="form-group span-2">
           <label>Arquivo (.xlsx)</label>
-          <input type="file" id="imp-arquivo" accept=".xlsx,.xls"
-                 style="text-transform: none; padding: 6px;">
+          <input type="file" id="imp-arquivo" accept=".xlsx,.xls" style="text-transform: none; padding: 6px;">
         </div>
       </div>
       <div id="imp-preview" style="margin-top: 14px; font-size: 13px; color: var(--text-muted);"></div>
       <div style="margin-top: 10px; font-size: 12px; color: var(--text-subtle);">
-        Emendas com mesmo <strong>Nº</strong> e <strong>ano</strong> serão atualizadas (upsert).
-        Valores já pagos não são zerados.
+        Emendas com mesmo <strong>Nº</strong> e <strong>ano</strong> serão atualizadas (upsert). Valores já pagos não são zerados.
       </div>
     </div>
     <div class="modal-footer">
@@ -426,7 +469,7 @@ const mapaRegioes = {
 };
 
 // ============================================================
-// LÓGICA DE AUTO-PREENCHIMENTO (respeita edição manual)
+// AUTO-PREENCHIMENTO DE REGIÃO
 // ============================================================
 let regiaoEditadaManualmente = false;
 
@@ -434,11 +477,7 @@ function configurarAutoRegiao() {
   const inputMunicipio = document.getElementById('f-municipio');
   const inputRegiao = document.getElementById('f-regiao');
   if (!inputMunicipio || !inputRegiao) return;
-
-  inputRegiao.addEventListener('input', function() {
-    regiaoEditadaManualmente = true;
-  });
-
+  inputRegiao.addEventListener('input', function() { regiaoEditadaManualmente = true; });
   inputMunicipio.addEventListener('input', function() {
     if (regiaoEditadaManualmente) return;
     const valor = this.value.toUpperCase().trim();
@@ -447,11 +486,17 @@ function configurarAutoRegiao() {
 }
 
 // ============================================================
-// CRUD + LÓGICA GERAL
+// ESTADO
 // ============================================================
 let emendasCache = [];
 let debounceTimer = null;
+let sortColumn = null;
+let sortDirection = 'desc';
+let fichaAtualId = null;
 
+// ============================================================
+// UTILITÁRIOS
+// ============================================================
 function fmtMoney(v) { return 'R$ ' + (Number(v) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 function escapeHTML(s) { return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }
 function badgeSituacao(s) {
@@ -460,6 +505,9 @@ function badgeSituacao(s) {
 }
 function debounceBusca() { clearTimeout(debounceTimer); debounceTimer = setTimeout(carregarEmendas, 300); }
 
+// ============================================================
+// CARREGAMENTO
+// ============================================================
 async function carregarEmendas() {
   const q = document.getElementById('busca').value.trim();
   const sit = document.getElementById('filtro-situacao').value;
@@ -479,18 +527,73 @@ async function carregarEmendas() {
   } catch (err) { console.error(err); toast('Erro ao carregar emendas', 'error'); }
 }
 
+// ============================================================
+// ORDENAÇÃO
+// ============================================================
+function sortBy(column) {
+  if (sortColumn === column) {
+    sortDirection = sortDirection === 'desc' ? 'asc' : 'desc';
+  } else {
+    sortColumn = column;
+    sortDirection = 'desc'; // 1º clique = DESC
+  }
+  atualizarIndicadoresSort();
+  renderTabela();
+}
+
+function atualizarIndicadoresSort() {
+  document.querySelectorAll('thead th.sortable').forEach(th => {
+    th.classList.remove('sorted-asc', 'sorted-desc');
+    if (th.dataset.sort === sortColumn) {
+      th.classList.add(sortDirection === 'desc' ? 'sorted-desc' : 'sorted-asc');
+    }
+  });
+}
+
+function getListaOrdenada() {
+  if (!sortColumn) return emendasCache;
+  return [...emendasCache].sort((a, b) => {
+    const va = a[sortColumn];
+    const vb = b[sortColumn];
+    if (va == null && vb == null) return 0;
+    if (va == null) return 1;
+    if (vb == null) return -1;
+    // Números
+    if (typeof va === 'number' && typeof vb === 'number') {
+      return sortDirection === 'desc' ? vb - va : va - vb;
+    }
+    // Número em campo texto (ex: "1748")
+    const sa = String(va).trim();
+    const sb = String(vb).trim();
+    if (/^\d+(\.\d+)?$/.test(sa) && /^\d+(\.\d+)?$/.test(sb)) {
+      const na = parseFloat(sa), nb = parseFloat(sb);
+      return sortDirection === 'desc' ? nb - na : na - nb;
+    }
+    // Texto
+    const la = sa.toLowerCase(), lb = sb.toLowerCase();
+    return sortDirection === 'desc'
+      ? lb.localeCompare(la, 'pt-BR')
+      : la.localeCompare(lb, 'pt-BR');
+  });
+}
+
+// ============================================================
+// RENDERIZAÇÃO
+// ============================================================
 function renderTabela() {
   const tbody = document.getElementById('tbody');
   const empty = document.getElementById('empty');
   const wrap = document.getElementById('tabela-wrap');
   const cont = document.getElementById('contador');
   const contLabel = document.getElementById('contador-label');
-  cont.textContent = emendasCache.length;
-  contLabel.textContent = emendasCache.length === 1 ? 'emenda' : 'emendas';
-  if (emendasCache.length === 0) { wrap.style.display = 'none'; empty.style.display = 'block'; return; }
+  const lista = getListaOrdenada();
+  cont.textContent = lista.length;
+  contLabel.textContent = lista.length === 1 ? 'emenda' : 'emendas';
+  if (lista.length === 0) { wrap.style.display = 'none'; empty.style.display = 'block'; return; }
   wrap.style.display = 'block'; empty.style.display = 'none'; tbody.innerHTML = '';
-  emendasCache.forEach(e => {
+  lista.forEach(e => {
     const tr = document.createElement('tr');
+    tr.addEventListener('click', () => abrirFicha(e.id));
     tr.innerHTML =
       '<td><div class="cell-main">' + escapeHTML(e.numero_emenda) + '</div><div class="cell-sub">' + escapeHTML(e.ano) + '</div></td>' +
       '<td><div class="cell-main">' + escapeHTML(e.municipio) + '</div><div class="cell-sub">' + escapeHTML(e.regiao || '—') + '</div></td>' +
@@ -499,8 +602,8 @@ function renderTabela() {
       '<td class="cell-value">' + fmtMoney(e.valor_empenhado) + '<small>Pago: ' + fmtMoney(e.valor_pago) + '</small></td>' +
       '<td>' + badgeSituacao(e.situacao) + '</td>' +
       '<td class="cell-actions"><div class="row-actions">' +
-        '<button class="btn-icon" onclick="abrirModal(' + e.id + ')" title="Editar"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>' +
-        '<button class="btn-icon danger" onclick="excluirEmenda(' + e.id + ')" title="Excluir"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>' +
+        '<button class="btn-icon" onclick="event.stopPropagation(); abrirModal(' + e.id + ')" title="Editar"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>' +
+        '<button class="btn-icon danger" onclick="event.stopPropagation(); excluirEmenda(' + e.id + ')" title="Excluir"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>' +
       '</div></td>';
     tbody.appendChild(tr);
   });
@@ -527,6 +630,87 @@ async function carregarFiltros() {
 
 function carregarTudo() { carregarEmendas(); carregarFiltros(); }
 
+// ============================================================
+// FICHA (visualização)
+// ============================================================
+function abrirFicha(id) {
+  const e = emendasCache.find(x => x.id === id);
+  if (!e) return;
+  fichaAtualId = id;
+
+  document.getElementById('ficha-titulo').textContent = 'Emenda nº ' + (e.numero_emenda || '—');
+  document.getElementById('ficha-sub').textContent = 'Ano ' + (e.ano || '—') + ' · ' + (e.municipio || '—');
+
+  const situacaoBrutaTxt = (e.situacao_bruta && e.situacao_bruta !== e.situacao)
+    ? '<span style="font-size: 12px; color: var(--text-muted);">Original na planilha: ' + escapeHTML(e.situacao_bruta) + '</span>'
+    : '';
+
+  document.getElementById('ficha-body').innerHTML = `
+    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 20px;">
+      ${badgeSituacao(e.situacao)}
+      ${situacaoBrutaTxt}
+    </div>
+
+    <div class="ficha-section">
+      <div class="ficha-section-title">Identificação</div>
+      <div class="ficha-grid">
+        <div class="ficha-field"><label>Nº da Emenda</label><div>${escapeHTML(e.numero_emenda || '—')}</div></div>
+        <div class="ficha-field"><label>Ano</label><div>${escapeHTML(e.ano || '—')}</div></div>
+        <div class="ficha-field"><label>Secretaria</label><div>${escapeHTML(e.secretaria || '—')}</div></div>
+      </div>
+    </div>
+
+    <div class="ficha-section">
+      <div class="ficha-section-title">Localidade</div>
+      <div class="ficha-grid">
+        <div class="ficha-field"><label>Município</label><div>${escapeHTML(e.municipio || '—')}</div></div>
+        <div class="ficha-field"><label>Região</label><div>${escapeHTML(e.regiao || '—')}</div></div>
+        <div class="ficha-field"><label>Líder</label><div>${escapeHTML(e.lider || '—')}</div></div>
+      </div>
+    </div>
+
+    <div class="ficha-section">
+      <div class="ficha-section-title">Entidade Beneficiária</div>
+      <div class="ficha-grid">
+        <div class="ficha-field"><label>Entidade</label><div>${escapeHTML(e.entidade || '—')}</div></div>
+        <div class="ficha-field"><label>CNPJ</label><div>${escapeHTML(e.cnpj || '—')}</div></div>
+        <div class="ficha-field"><label>Ofício</label><div>${escapeHTML(e.oficio || '—')}</div></div>
+      </div>
+    </div>
+
+    <div class="ficha-section">
+      <div class="ficha-section-title">Detalhes</div>
+      <div class="ficha-field full"><label>Objeto</label><div>${escapeHTML(e.objeto || '—')}</div></div>
+      <div class="ficha-field full"><label>Referência</label><div class="pre">${escapeHTML(e.referencia || '—')}</div></div>
+      <div class="ficha-field full"><label>Justificativa</label><div class="pre">${escapeHTML(e.justificativa || '—')}</div></div>
+      ${e.observacoes ? `<div class="ficha-field full"><label>Observações</label><div class="pre">${escapeHTML(e.observacoes)}</div></div>` : ''}
+    </div>
+
+    <div class="ficha-section">
+      <div class="ficha-section-title">Valores</div>
+      <div class="ficha-grid">
+        <div class="ficha-field"><label>Valor Empenhado</label><div style="font-weight: 600;">${fmtMoney(e.valor_empenhado)}</div></div>
+        <div class="ficha-field"><label>Valor Pago</label><div style="font-weight: 600;">${fmtMoney(e.valor_pago)}</div></div>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('modal-ficha').classList.add('open');
+}
+
+function fecharFicha() {
+  document.getElementById('modal-ficha').classList.remove('open');
+}
+
+function editarDaFicha() {
+  const id = fichaAtualId;
+  fecharFicha();
+  if (id) abrirModal(id);
+}
+
+// ============================================================
+// FORMULÁRIO (criar/editar)
+// ============================================================
 function abrirModal(id) {
   document.getElementById('form-emenda').reset();
   document.getElementById('f-id').value = '';
@@ -550,6 +734,7 @@ function abrirModal(id) {
       document.getElementById('f-entidade').value = e.entidade || '';
       document.getElementById('f-cnpj').value = e.cnpj || '';
       document.getElementById('f-objeto').value = e.objeto || '';
+      document.getElementById('f-justificativa').value = e.justificativa || '';
       document.getElementById('f-situacao').value = e.situacao || 'Aguardando';
       document.getElementById('f-empenhado').value = e.valor_empenhado || '';
       document.getElementById('f-pago').value = e.valor_pago || '';
@@ -578,6 +763,7 @@ async function salvarEmenda(ev) {
     entidade: document.getElementById('f-entidade').value.trim(),
     cnpj: document.getElementById('f-cnpj').value.trim(),
     objeto: document.getElementById('f-objeto').value.trim(),
+    justificativa: document.getElementById('f-justificativa').value.trim(),
     situacao: document.getElementById('f-situacao').value,
     valor_empenhado: parseFloat(document.getElementById('f-empenhado').value) || 0,
     valor_pago: parseFloat(document.getElementById('f-pago').value) || 0,
@@ -615,17 +801,14 @@ function toast(msg, tipo) {
 }
 
 // ============================================================
-// IMPORTAÇÃO DE PLANILHA
+// IMPORTAÇÃO
 // ============================================================
 function abrirModalImportar() {
   document.getElementById('imp-arquivo').value = '';
   document.getElementById('imp-preview').innerHTML = '';
   document.getElementById('modal-importar').classList.add('open');
 }
-
-function fecharModalImportar() {
-  document.getElementById('modal-importar').classList.remove('open');
-}
+function fecharModalImportar() { document.getElementById('modal-importar').classList.remove('open'); }
 
 async function previewImportar() {
   const arquivo = document.getElementById('imp-arquivo').files[0];
@@ -644,7 +827,7 @@ async function previewImportar() {
       '<strong>' + data.total_linhas + '</strong> linhas válidas' +
       (data.ignoradas ? ' · <span style="color: var(--warning);">' + data.ignoradas + ' ignoradas</span>' : '') +
       '<br><small style="color: var(--text-subtle);">Amostra: ' +
-      data.amostra.map(r => r.numero_emenda + ' · ' + r.municipio + ' · R$ ' + r.valor_empenhado).join('<br>') +
+      data.amostra.map(r => r.numero_emenda + ' · ' + r.municipio + ' · R$ ' + r.valor_empenhado + ' (' + r.situacao + ')').join('<br>') +
       '</small>';
   } catch (err) {
     preview.innerHTML = '<span style="color: var(--danger);">' + escapeHTML(err.message) + '</span>';
@@ -676,19 +859,32 @@ async function executarImportar() {
 }
 
 // ============================================================
-// INICIALIZAÇÃO (roda só depois do DOM carregar)
+// INICIALIZAÇÃO
 // ============================================================
 document.addEventListener('DOMContentLoaded', function() {
   configurarAutoRegiao();
+
+  // Ordenação das colunas
+  document.querySelectorAll('thead th.sortable').forEach(th => {
+    th.addEventListener('click', () => sortBy(th.dataset.sort));
+  });
+
+  // Fechar modais clicando fora
   document.getElementById('modal-overlay').addEventListener('click', function(e) {
     if (e.target === e.currentTarget) fecharModal();
+  });
+  document.getElementById('modal-ficha').addEventListener('click', function(e) {
+    if (e.target === e.currentTarget) fecharFicha();
   });
   document.getElementById('modal-importar').addEventListener('click', function(e) {
     if (e.target === e.currentTarget) fecharModalImportar();
   });
+
+  // ESC
   document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') { fecharModal(); fecharModalImportar(); }
+    if (e.key === 'Escape') { fecharModal(); fecharFicha(); fecharModalImportar(); }
   });
+
   carregarTudo();
 });
 </script>
