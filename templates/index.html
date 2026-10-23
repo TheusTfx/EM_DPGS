@@ -1,451 +1,230 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Radar de Emendas</title>
-<style>
-:root {
-  --bg: #f1f5f9; --surface: #ffffff; --border: #cbd5e1; --border-light: #e2e8f0;
-  --text: #0f172a; --text-muted: #475569; --text-subtle: #94a3b8;
-  --primary: #1e3a8a; --primary-hover: #1e40af;
-  --success: #166534; --success-bg: #dcfce7; --warning: #92400e; --warning-bg: #fef3c7;
-  --info: #1e40af; --info-bg: #dbeafe; --danger: #991b1b; --danger-bg: #fee2e2;
-  --neutral: #334155; --neutral-bg: #e2e8f0;
-}
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
-button { font-family: inherit; cursor: pointer; }
-input, select, textarea { font-family: inherit; font-size: 14px; }
+<!-- Datalist de regiões (sugestões para autocompletar) -->
+<datalist id="lista-regioes">
+  <option>NOROESTE COLONIAL</option>
+  <option>ALBERTO PASQUALINI</option>
+  <option>ALTO JACUÍ</option>
+  <option>CELEIRO – ITIBERÊ OSÓRIO</option>
+  <option>VINHEDOS</option>
+  <option>ALTO URUGUAI – LEONEL BRIZOLA</option>
+  <option>GRANDE GUAPORÉ</option>
+  <option>TRABALHISTA DO PLANALTO</option>
+  <option>ZONA SUL</option>
+  <option>FRONTEIRA OESTE</option>
+  <option>FRONTEIRA NOROESTE - PAULO MADEIRA</option>
+  <option>FRONTEIRA SUDESTE</option>
+  <option>VALE DO JACUÍ</option>
+  <option>GRANDE CAXIAS</option>
+  <option>JOSÉ AMÉRICO FREIRE</option>
+  <option>VALE DO ALTO TAQUARI</option>
+  <option>ALTO DA SERRA DO BOTUCARAÍ</option>
+  <option>GRANDE SANTA MARIA</option>
+  <option>ALTO DA SERRA</option>
+  <option>MEDIO ALTO URUGUAI – JOÃO GOULART</option>
+  <option>GRANDE LAGOA</option>
+  <option>LITORAL NORTE</option>
+  <option>VALE DO PARANHANA</option>
+  <option>MILTON GARCIA DUTRA</option>
+  <option>COSTA DOCE</option>
+</datalist>
 
-.header { background: var(--primary); color: #fff; border-bottom: 2px solid #0f172a; }
-.header-inner { max-width: 1280px; margin: 0 auto; padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-.brand { display: flex; flex-direction: column; line-height: 1.2; }
-.brand-title { font-weight: 600; font-size: 16px; letter-spacing: -.01em; }
-.brand-sub { font-size: 12px; color: #bfdbfe; margin-top: 2px; }
-.header-actions { display: flex; gap: 8px; }
-.header-actions .btn-ghost { background: transparent; color: #fff; border-color: rgba(255,255,255,.3); }
-.header-actions .btn-ghost:hover { background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.5); }
-.header-actions .btn-primary { background: #fff; color: var(--primary); border-color: #fff; }
-.header-actions .btn-primary:hover { background: #f1f5f9; }
-
-.container { max-width: 1280px; margin: 0 auto; padding: 24px; }
-.kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
-.kpi { background: var(--surface); border: 1px solid var(--border-light); border-left: 3px solid var(--primary); padding: 14px 18px; }
-.kpi-label { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px; }
-.kpi-value { font-size: 20px; font-weight: 600; letter-spacing: -.01em; }
-.kpi-value.small { font-size: 16px; }
-
-.toolbar { background: var(--surface); border: 1px solid var(--border-light); padding: 12px 16px; margin-bottom: 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-.search-wrap { flex: 1; min-width: 220px; position: relative; }
-.search-wrap svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-subtle); pointer-events: none; }
-.search-wrap input { width: 100%; padding: 8px 12px 8px 32px; border: 1px solid var(--border); background: var(--surface); outline: none; transition: border-color .12s; color: var(--text); }
-.search-wrap input:focus { border-color: var(--primary); }
-.filter-select { padding: 8px 10px; min-width: 150px; border: 1px solid var(--border); background: var(--surface); color: var(--text); outline: none; cursor: pointer; transition: border-color .12s; }
-.filter-select:focus { border-color: var(--primary); }
-
-.btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border: 1px solid transparent; font-weight: 500; font-size: 13px; transition: background .12s, border-color .12s; white-space: nowrap; border-radius: 2px; }
-.btn-primary { background: var(--primary); color: #fff; border-color: var(--primary); }
-.btn-primary:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
-.btn-ghost { background: transparent; color: var(--text-muted); border-color: var(--border); }
-.btn-ghost:hover { background: var(--bg); color: var(--text); }
-.btn-secondary { background: var(--surface); color: var(--text); border-color: var(--border); }
-.btn-secondary:hover { background: var(--bg); }
-.btn-sm { padding: 5px 10px; font-size: 12px; }
-.btn-icon { width: 30px; height: 30px; padding: 0; border-radius: 2px; background: transparent; border: 1px solid transparent; display: inline-flex; align-items: center; justify-content: center; color: var(--text-muted); transition: all .12s; }
-.btn-icon:hover { background: var(--bg); color: var(--text); border-color: var(--border); }
-.btn-icon.danger:hover { background: var(--danger-bg); color: var(--danger); border-color: #fca5a5; }
-
-.table-card { background: var(--surface); border: 1px solid var(--border-light); overflow: hidden; overflow-x: auto; }
-.table-header { padding: 12px 18px; border-bottom: 1px solid var(--border-light); display: flex; align-items: center; justify-content: space-between; font-size: 13px; color: var(--text-muted); background: #f8fafc; }
-.table-header strong { color: var(--text); font-weight: 600; }
-table { width: 100%; border-collapse: collapse; min-width: 1000px; }
-thead th { text-align: left; padding: 10px 18px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); background: #f8fafc; border-bottom: 1px solid var(--border); white-space: nowrap; }
-thead th.right { text-align: right; }
-tbody tr { border-bottom: 1px solid var(--border-light); transition: background .1s; }
-tbody tr:last-child { border-bottom: none; }
-tbody tr:hover { background: #f8fafc; }
-tbody td { padding: 12px 18px; vertical-align: middle; }
-.cell-main { font-weight: 500; color: var(--text); margin-bottom: 2px; }
-.cell-sub { font-size: 12px; color: var(--text-muted); }
-.cell-obj { max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cell-value { text-align: right; font-variant-numeric: tabular-nums; font-weight: 500; }
-.cell-value small { display: block; font-weight: 400; font-size: 11px; color: var(--text-muted); }
-.cell-actions { width: 90px; text-align: right; }
-.row-actions { display: flex; gap: 2px; justify-content: flex-end; opacity: 0; transition: opacity .12s; }
-tbody tr:hover .row-actions { opacity: 1; }
-
-.status { display: inline-block; padding: 2px 8px; font-size: 11.5px; font-weight: 500; border: 1px solid transparent; border-radius: 2px; }
-.status-aguardando { background: var(--neutral-bg); color: var(--neutral); border-color: #cbd5e1; }
-.status-empenhado  { background: var(--warning-bg); color: var(--warning); border-color: #fde68a; }
-.status-em-execucao { background: var(--info-bg); color: var(--info); border-color: #bfdbfe; }
-.status-pago       { background: var(--success-bg); color: var(--success); border-color: #bbf7d0; }
-.status-cancelada  { background: var(--danger-bg); color: var(--danger); border-color: #fecaca; }
-
-.empty { padding: 60px 24px; text-align: center; color: var(--text-muted); }
-.empty-icon { width: 44px; height: 44px; margin: 0 auto 14px; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; color: var(--text-subtle); }
-.empty-title { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
-.empty-desc { font-size: 13px; }
-
-.modal-overlay { position: fixed; inset: 0; background: rgba(15,23,42,.5); z-index: 100; display: none; align-items: flex-start; justify-content: center; padding: 40px 16px; overflow-y: auto; }
-.modal-overlay.open { display: flex; }
-.modal { background: var(--surface); border: 1px solid var(--border); width: 100%; max-width: 800px; }
-.modal-header { padding: 16px 22px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; background: #f8fafc; }
-.modal-title { font-size: 15px; font-weight: 600; color: var(--text); }
-.modal-body { padding: 22px; }
-.modal-footer { padding: 14px 22px; border-top: 1px solid var(--border); background: #f8fafc; display: flex; justify-content: flex-end; gap: 8px; }
-
-.form-section { margin-bottom: 20px; border-bottom: 1px solid var(--border-light); padding-bottom: 16px; }
-.form-section:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
-.form-section-title { font-size: 12px; font-weight: 700; color: var(--primary); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 12px; }
-.form-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
-.form-group { display: flex; flex-direction: column; gap: 5px; }
-.form-group.full { grid-column: 1 / -1; }
-.form-group.span-2 { grid-column: span 2; }
-.form-group label { font-size: 12px; font-weight: 500; color: var(--text-muted); }
-.form-group label .req { color: var(--danger); }
-.form-group input, .form-group select, .form-group textarea { padding: 8px 10px; border: 1px solid var(--border); background: var(--surface); outline: none; transition: border-color .12s; width: 100%; color: var(--text); }
-.form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--primary); }
-.form-group textarea { resize: vertical; min-height: 70px; }
-
-.toast { position: fixed; bottom: 20px; right: 20px; background: var(--surface); border: 1px solid var(--border); padding: 10px 14px; font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 8px; z-index: 200; transform: translateY(20px); opacity: 0; transition: all .2s ease-out; pointer-events: none; max-width: 340px; }
-.toast.show { transform: translateY(0); opacity: 1; }
-.toast-success { border-left: 3px solid var(--success); }
-.toast-success .toast-icon { color: var(--success); }
-.toast-error { border-left: 3px solid var(--danger); }
-.toast-error .toast-icon { color: var(--danger); }
-
-@media (max-width: 900px) { .kpis { grid-template-columns: repeat(2, 1fr); } .form-grid { grid-template-columns: 1fr 1fr; } }
-@media (max-width: 640px) {
-  .container { padding: 16px; } .header-inner { padding: 12px 16px; }
-  .kpis { grid-template-columns: 1fr 1fr; gap: 8px; } .kpi { padding: 12px; } .kpi-value { font-size: 16px; }
-  .toolbar { padding: 10px; gap: 8px; } .filter-select { min-width: 0; flex: 1; }
-  .form-grid { grid-template-columns: 1fr; } .form-group.span-2 { grid-column: 1; }
-  thead { display: none; } tbody tr { display: block; padding: 12px 0; border-bottom: 2px solid var(--border); }
-  tbody td { display: block; padding: 4px 16px; border: none; }
-  .cell-value, .cell-actions { text-align: left; } .row-actions { opacity: 1; justify-content: flex-start; margin-top: 8px; }
-  .cell-obj { max-width: none; white-space: normal; }
-}
-</style>
-</head>
-<body>
-
-<header class="header">
-  <div class="header-inner">
-    <div class="brand">
-      <div class="brand-title">Radar de Emendas</div>
-      <div class="brand-sub">Gabinete Deputado Estadual · Rio Grande do Sul</div>
-    </div>
-    <div class="header-actions">
-      <button class="btn btn-ghost btn-sm" onclick="carregarTudo()" title="Recarregar">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
-        Atualizar
-      </button>
-      <button class="btn btn-primary btn-sm" onclick="abrirModal()">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Nova emenda
-      </button>
-    </div>
-  </div>
-</header>
-
-<main class="container">
-  <section class="kpis">
-    <div class="kpi"><div class="kpi-label">Total de emendas</div><div class="kpi-value" id="kpi-total">—</div></div>
-    <div class="kpi"><div class="kpi-label">Valor empenhado</div><div class="kpi-value small" id="kpi-empenhado">—</div></div>
-    <div class="kpi"><div class="kpi-label">Valor pago</div><div class="kpi-value small" id="kpi-pago">—</div></div>
-    <div class="kpi"><div class="kpi-label">Em execução</div><div class="kpi-value" id="kpi-execucao">—</div></div>
-  </section>
-
-  <section class="toolbar">
-    <div class="search-wrap">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      <input type="text" id="busca" placeholder="Buscar por nº, município, objeto, entidade ou líder..." oninput="debounceBusca()">
-    </div>
-    <select class="filter-select" id="filtro-situacao" onchange="carregarEmendas()"><option value="">Todas as situações</option></select>
-    <select class="filter-select" id="filtro-municipio" onchange="carregarEmendas()"><option value="">Todos os municípios</option></select>
-    <select class="filter-select" id="filtro-ano" onchange="carregarEmendas()"><option value="">Todos os anos</option></select>
-  </section>
-
-  <section class="table-card">
-    <div class="table-header">
-      <span><strong id="contador">0</strong> <span id="contador-label">emendas</span></span>
-    </div>
-    <div id="tabela-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Emenda / NºE</th>
-            <th>Município / Região</th>
-            <th>Entidade / CNPJ</th>
-            <th>Objeto</th>
-            <th class="right">Valores</th>
-            <th>Situação</th>
-            <th class="right">Ações</th>
-          </tr>
-        </thead>
-        <tbody id="tbody"></tbody>
-      </table>
-    </div>
-    <div class="empty" id="empty" style="display: none;">
-      <div class="empty-icon">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-      </div>
-      <div class="empty-title">Nenhuma emenda cadastrada</div>
-      <div class="empty-desc">Clique em "Nova emenda" para começar o cadastro.</div>
-    </div>
-  </section>
-</main>
-
-<div class="modal-overlay" id="modal-overlay">
-  <div class="modal">
-    <div class="modal-header">
-      <div class="modal-title" id="modal-title">Nova emenda</div>
-      <button class="btn-icon" onclick="fecharModal()" aria-label="Fechar">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
-    </div>
-    <form id="form-emenda" onsubmit="salvarEmenda(event)">
-      <div class="modal-body">
-        <input type="hidden" id="f-id">
-        <input type="hidden" id="f-versao">
-        
-        <div class="form-section">
-          <div class="form-section-title">Identificação e Localidade</div>
-          <div class="form-grid">
-            <div class="form-group"><label>Nº da Emenda <span class="req">*</span></label><input type="text" id="f-numero" required placeholder="Ex: 2026-0001"></div>
-            <div class="form-group"><label>NºE (Emenda Eletrônica)</label><input type="text" id="f-numero_e" placeholder="Ex: 123456789"></div>
-            <div class="form-group"><label>Ano <span class="req">*</span></label><input type="number" id="f-ano" required value="2026"></div>
-            
-            <div class="form-group"><label>Município <span class="req">*</span></label><input type="text" id="f-municipio" required placeholder="Ex: Tapejara"></div>
-            <div class="form-group"><label>Região</label><input type="text" id="f-regiao" placeholder="Ex: Norte"></div>
-            <div class="form-group"><label>Secretaria</label><input type="text" id="f-secretaria" placeholder="Ex: Secretaria de Saúde"></div>
-            
-            <div class="form-group span-2"><label>Líder / Autor da Indicação</label><input type="text" id="f-lider" placeholder="Nome do líder político local"></div>
-            <div class="form-group"><label>Referência</label><input type="text" id="f-referencia" placeholder="Ex: Ofício 123/2026"></div>
-          </div>
-        </div>
-
-        <div class="form-section">
-          <div class="form-section-title">Entidade Beneficiária</div>
-          <div class="form-grid">
-            <div class="form-group span-2"><label>Nome da Entidade / Órgão</label><input type="text" id="f-entidade" placeholder="Ex: Prefeitura Municipal de Tapejara"></div>
-            <div class="form-group"><label>CNPJ</label><input type="text" id="f-cnpj" placeholder="00.000.000/0000-00"></div>
-          </div>
-        </div>
-
-        <div class="form-section">
-          <div class="form-section-title">Detalhes da Emenda</div>
-          <div class="form-grid">
-            <div class="form-group full"><label>Objeto / Descrição</label><input type="text" id="f-objeto" placeholder="Ex: Pavimentação asfáltica - Rua X"></div>
-            <div class="form-group"><label>Ofício</label><input type="text" id="f-oficio" placeholder="Ex: Ofício 456/2026"></div>
-            <div class="form-group"><label>Situação</label>
-              <select id="f-situacao">
-                <option>Aguardando</option><option>Empenhado</option><option>Em execução</option><option>Pago</option><option>Cancelada</option>
-              </select>
-            </div>
-            <div class="form-group"><label>Valor Empenhado (R$)</label><input type="number" step="0.01" id="f-empenhado" placeholder="0,00"></div>
-            <div class="form-group"><label>Valor Pago (R$)</label><input type="number" step="0.01" id="f-pago" placeholder="0,00"></div>
-            <div class="form-group full"><label>Observações</label><textarea id="f-observacoes" placeholder="Anotações internas..."></textarea></div>
-          </div>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" onclick="fecharModal()">Cancelar</button>
-        <button type="submit" class="btn btn-primary" id="btn-salvar">Salvar</button>
-      </div>
-    </form>
-  </div>
-</div>
-
-<div class="toast" id="toast"><span class="toast-icon">✓</span><span id="toast-msg"></span></div>
+<datalist id="lista-municipios">
+  <!-- Sugestões de municípios para autocompletar; o usuário pode digitar qualquer outro -->
+  <option>IJUÍ</option><option>CRUZ ALTA</option><option>SANTO AUGUSTO</option>
+  <option>IBIRUBÁ</option><option>SELBACH</option><option>TAPERA</option>
+  <option>TRÊS PASSOS</option><option>FREDERICO WESTPHALEN</option><option>HORIZONTINA</option>
+  <option>PALMEIRA DAS MISSÕES</option><option>SARANDI</option>
+  <option>BENTO GONÇALVES</option><option>GARIBALDI</option><option>CARLOS BARBOSA</option>
+  <option>ERECHIM</option><option>GETÚLIO VARGAS</option><option>ARATIBA</option>
+  <option>GUAPORÉ</option><option>ENCONSTADO</option><option>MUÇUM</option>
+  <option>PASSO FUNDO</option><option>CARAZINHO</option><option>TAPEJARA</option><option>CAMPO NOVO</option>
+  <option>PELOTAS</option><option>RIO GRANDE</option><option>CAMAQUÃ</option><option>CANGUÇU</option>
+  <option>URUGUAIANA</option><option>ALEGRETE</option><option>SÃO BORJA</option><option>ITAQUI</option>
+  <option>SANTA ROSA</option><option>SANTO CRISTO</option><option>GIRUÁ</option>
+  <option>BAGÉ</option><option>DOM PEDRITO</option><option>HERVAL</option>
+  <option>CACHOEIRA DO SUL</option><option>RIO PARDO</option><option>SOBRADINHO</option>
+  <option>CAXIAS DO SUL</option><option>FLORES DA CUNHA</option><option>SÃO MARCOS</option>
+  <option>SÃO JERÔNIMO</option><option>CHARQUEADAS</option><option>ELDORADO DO SUL</option>
+  <option>LAJEADO</option><option>ARROIO DO MEIO</option><option>ROCA SALES</option>
+  <option>SOLEDADE</option><option>ESPUMOSO</option><option>FONTOURA XAVIER</option>
+  <option>SANTA MARIA</option><option>JÚLIO DE CASTILHOS</option><option>SÃO PEDRO DO SUL</option>
+  <option>VACARIA</option><option>BOM JESUS</option><option>MONTE ALEGRE DOS CAMPOS</option>
+  <option>VICENTE DUTRA</option><option>SÃO PEDRO DAS MISSÕES</option>
+  <option>OSÓRIO</option><option>TRAMANDAÍ</option><option>IMBÉ</option><option>XANGRI-LÁ</option>
+  <option>TORRES</option><option>ARROIO DO SAL</option><option>DOM PEDRO DE ALCÂNTARA</option>
+  <option>TAQUARA</option><option>IGREJINHA</option><option>PAROBÉ</option><option>ROLANTE</option>
+  <option>RONDA ALTA</option><option>LIBERATO SALZANO</option>
+  <option>PORTO ALEGRE</option><option>GRAVATAÍ</option><option>VIAMÃO</option><option>ALVORADA</option>
+  <option>NOVO HAMBURGO</option><option>SÃO LEOPOLDO</option><option>ESTEIO</option>
+  <option>GRAMADO</option><option>CANELA</option><option>NOVA PETRÓPOLIS</option>
+</datalist>
 
 <script>
-let emendasCache = [];
-let debounceTimer = null;
+// ===================================================================
+// MAPEAMENTO MUNICÍPIO → REGIÃO (COREDES RS)
+// Adicione novos municípios aqui: "NOME": "REGIÃO"
+// ===================================================================
+const mapaRegioes = {
+  // NOROESTE COLONIAL
+  "IJUÍ": "NOROESTE COLONIAL", "SANTO AUGUSTO": "NOROESTE COLONIAL",
+  "CÉSAR AUGUSTO": "NOROESTE COLONIAL", "AJURICABA": "NOROESTE COLONIAL",
+  
+  // ALTO JACUÍ
+  "CRUZ ALTA": "ALTO JACUÍ", "IBIRUBÁ": "ALTO JACUÍ", "SELBACH": "ALTO JACUÍ",
+  "TAPERA": "ALTO JACUÍ", "SALDANHA MARINHO": "ALTO JACUÍ",
+  "SANTA BÁRBARA DO SUL": "ALTO JACUÍ", "QUINZE DE NOVEMBRO": "ALTO JACUÍ",
+  
+  // CELEIRO – ITIBERÊ OSÓRIO
+  "TRÊS PASSOS": "CELEIRO – ITIBERÊ OSÓRIO", "FREDERICO WESTPHALEN": "CELEIRO – ITIBERÊ OSÓRIO",
+  "HORIZONTINA": "CELEIRO – ITIBERÊ OSÓRIO", "PALMEIRA DAS MISSÕES": "CELEIRO – ITIBERÊ OSÓRIO",
+  "SARANDI": "CELEIRO – ITIBERÊ OSÓRIO", "TUCUNDUVA": "CELEIRO – ITIBERÊ OSÓRIO",
+  "SÃO MARTINHO": "CELEIRO – ITIBERÊ OSÓRIO", "VISTA GAÚCHA": "CELEIRO – ITIBERÊ OSÓRIO",
+  
+  // VINHEDOS
+  "BENTO GONÇALVES": "VINHEDOS", "GARIBALDI": "VINHEDOS",
+  "CARLOS BARBOSA": "VINHEDOS", "MONTE BELO DO SUL": "VINHEDOS",
+  "PINTO BANDEIRA": "VINHEDOS", "SANTA TEREZA": "VINHEDOS",
+  "VALE REAL": "VINHEDOS", "NOVA ROMA DO SUL": "VINHEDOS",
+  
+  // ALTO URUGUAI – LEONEL BRIZOLA
+  "ERECHIM": "ALTO URUGUAI – LEONEL BRIZOLA", "GETÚLIO VARGAS": "ALTO URUGUAI – LEONEL BRIZOLA",
+  "ARATIBA": "ALTO URUGUAI – LEONEL BRIZOLA", "JACUTINGA": "ALTO URUGUAI – LEONEL BRIZOLA",
+  "SEVERIANO DE ALMEIDA": "ALTO URUGUAI – LEONEL BRIZOLA",
+  
+  // GRANDE GUAPORÉ
+  "GUAPORÉ": "GRANDE GUAPORÉ", "ENCONSTADO": "GRANDE GUAPORÉ",
+  "MUÇUM": "GRANDE GUAPORÉ", "DOIS LAJEADOS": "GRANDE GUAPORÉ",
+  "COTIPOARA": "GRANDE GUAPORÉ", "SÉRIO": "GRANDE GUAPORÉ",
+  "PUTINGA": "GRANDE GUAPORÉ", "NOVA BASSANO": "GRANDE GUAPORÉ",
+  
+  // TRABALHISTA DO PLANALTO
+  "PASSO FUNDO": "TRABALHISTA DO PLANALTO", "CARAZINHO": "TRABALHISTA DO PLANALTO",
+  "TAPEJARA": "TRABALHISTA DO PLANALTO", "CAMPO NOVO": "TRABALHISTA DO PLANALTO",
+  "CIRÍACO": "TRABALHISTA DO PLANALTO", "COXILHA": "TRABALHISTA DO PLANALTO",
+  "SANTA CECÍLIA DO SUL": "TRABALHISTA DO PLANALTO", "NÃO-ME-TOQUE": "TRABALHISTA DO PLANALTO",
+  
+  // ZONA SUL
+  "PELOTAS": "ZONA SUL", "RIO GRANDE": "ZONA SUL", "CAMAQUÃ": "ZONA SUL",
+  "CANGUÇU": "ZONA SUL", "SÃO JOSÉ DO NORTE": "ZONA SUL", "CRISTAL": "ZONA SUL",
+  "TAPES": "ZONA SUL", "ARAMBARÉ": "ZONA SUL", "DOM FELICIANO": "ZONA SUL",
+  "SENTINELA DO SUL": "ZONA SUL", "CHUVISCA": "ZONA SUL",
+  
+  // FRONTEIRA OESTE
+  "URUGUAIANA": "FRONTEIRA OESTE", "ALEGRETE": "FRONTEIRA OESTE",
+  "SÃO BORJA": "FRONTEIRA OESTE", "ITAQUI": "FRONTEIRA OESTE",
+  "BARRA DO QUARAÍ": "FRONTEIRA OESTE", "QUARAÍ": "FRONTEIRA OESTE",
+  "MANOEL VIANA": "FRONTEIRA OESTE", "MAÇAMBARÁ": "FRONTEIRA OESTE",
+  
+  // FRONTEIRA NOROESTE - PAULO MADEIRA
+  "SANTA ROSA": "FRONTEIRA NOROESTE - PAULO MADEIRA", "SANTO CRISTO": "FRONTEIRA NOROESTE - PAULO MADEIRA",
+  "GIRUÁ": "FRONTEIRA NOROESTE - PAULO MADEIRA", "TRÊS DE MAIO": "FRONTEIRA NOROESTE - PAULO MADEIRA",
+  "TUPARENDI": "FRONTEIRA NOROESTE - PAULO MADEIRA", "BOA VISTA DO BURICÁ": "FRONTEIRA NOROESTE - PAULO MADEIRA",
+  "NOVO MACHADO": "FRONTEIRA NOROESTE - PAULO MADEIRA",
+  
+  // FRONTEIRA SUDESTE
+  "BAGÉ": "FRONTEIRA SUDESTE", "DOM PEDRITO": "FRONTEIRA SUDESTE",
+  "HERVAL": "FRONTEIRA SUDESTE", "PEDRAS ALTAS": "FRONTEIRA SUDESTE",
+  "PINHEIRO MACHADO": "FRONTEIRA SUDESTE", "ACEGUÁ": "FRONTEIRA SUDESTE",
+  "CANDIOTA": "FRONTEIRA SUDESTE", "HULHA NEGRA": "FRONTEIRA SUDESTE",
+  
+  // VALE DO JACUÍ
+  "CACHOEIRA DO SUL": "VALE DO JACUÍ", "RIO PARDO": "VALE DO JACUÍ",
+  "SOBRADINHO": "VALE DO JACUÍ", "CERRO BRANCO": "VALE DO JACUÍ",
+  "NOVO CABRAIS": "VALE DO JACUÍ", "PANTANO GRANDE": "VALE DO JACUÍ",
+  "AGUDO": "VALE DO JACUÍ", "PARAÍSO DO SUL": "VALE DO JACUÍ",
+  
+  // GRANDE CAXIAS
+  "CAXIAS DO SUL": "GRANDE CAXIAS", "FLORES DA CUNHA": "GRANDE CAXIAS",
+  "SÃO MARCOS": "GRANDE CAXIAS", "NOVA PÁDUA": "GRANDE CAXIAS",
+  "FARROUPILHA": "GRANDE CAXIAS",
+  
+  // JOSÉ AMÉRICO FREIRE
+  "SÃO JERÔNIMO": "JOSÉ AMÉRICO FREIRE", "CHARQUEADAS": "JOSÉ AMÉRICO FREIRE",
+  "ARROIO DOS RATOS": "JOSÉ AMÉRICO FREIRE", "ELDORADO DO SUL": "JOSÉ AMÉRICO FREIRE",
+  
+  // VALE DO ALTO TAQUARI
+  "LAJEADO": "VALE DO ALTO TAQUARI", "ARROIO DO MEIO": "VALE DO ALTO TAQUARI",
+  "ROCA SALES": "VALE DO ALTO TAQUARI", "TRAVESSEIRO": "VALE DO ALTO TAQUARI",
+  "CAPITÃO": "VALE DO ALTO TAQUARI", "POUSO NOVO": "VALE DO ALTO TAQUARI",
+  "PROGRESSO": "VALE DO ALTO TAQUARI", "FORQUETINHA": "VALE DO ALTO TAQUARI",
+  
+  // ALTO DA SERRA DO BOTUCARAÍ
+  "SOLEDADE": "ALTO DA SERRA DO BOTUCARAÍ", "ESPUMOSO": "ALTO DA SERRA DO BOTUCARAÍ",
+  "FONTOURA XAVIER": "ALTO DA SERRA DO BOTUCARAÍ", "NOVA PALMA": "ALTO DA SERRA DO BOTUCARAÍ",
+  "TUNAS": "ALTO DA SERRA DO BOTUCARAÍ",
+  
+  // GRANDE SANTA MARIA
+  "SANTA MARIA": "GRANDE SANTA MARIA", "JÚLIO DE CASTILHOS": "GRANDE SANTA MARIA",
+  "SÃO PEDRO DO SUL": "GRANDE SANTA MARIA", "RESTINGA SÉCA": "GRANDE SANTA MARIA",
+  "TOROPI": "GRANDE SANTA MARIA", "SILVEIRA MARTINS": "GRANDE SANTA MARIA",
+  
+  // ALTO DA SERRA
+  "VACARIA": "ALTO DA SERRA", "BOM JESUS": "ALTO DA SERRA",
+  "MONTE ALEGRE DOS CAMPOS": "ALTO DA SERRA", "CAMPESTRE DA SERRA": "ALTO DA SERRA",
+  "SÃO JOSÉ DOS AUSENTES": "ALTO DA SERRA", "JAQUIRANA": "ALTO DA SERRA",
+  
+  // MEDIO ALTO URUGUAI – JOÃO GOULART
+  "VICENTE DUTRA": "MEDIO ALTO URUGUAI – JOÃO GOULART",
+  "SÃO PEDRO DAS MISSÕES": "MEDIO ALTO URUGUAI – JOÃO GOLART",
+  "IRATI": "MEDIO ALTO URUGUAI – JOÃO GOULART",
+  "TRINDADE DO SUL": "MEDIO ALTO URUGUAI – JOÃO GOULART",
+  
+  // GRANDE LAGOA
+  "OSÓRIO": "GRANDE LAGOA", "TRAMANDAÍ": "GRANDE LAGOA",
+  "IMBÉ": "GRANDE LAGOA", "XANGRI-LÁ": "GRANDE LAGOA",
+  "MOSTARDAS": "GRANDE LAGOA", "PALMARES DO SUL": "GRANDE LAGOA",
+  "CIDREIRA": "GRANDE LAGOA", "CAPIVARI DO SUL": "GRANDE LAGOA",
+  
+  // LITORAL NORTE
+  "TORRES": "LITORAL NORTE", "ARROIO DO SAL": "LITORAL NORTE",
+  "DOM PEDRO DE ALCÂNTARA": "LITORAL NORTE", "TRÊS CACHOEIRAS": "LITORAL NORTE",
+  "MAQUINÉ": "LITORAL NORTE", "MORRINHOS DO SUL": "LITORAL NORTE",
+  
+  // VALE DO PARANHANA
+  "TAQUARA": "VALE DO PARANHANA", "IGREJINHA": "VALE DO PARANHANA",
+  "PAROBÉ": "VALE DO PARANHANA", "ROLANTE": "VALE DO PARANHANA",
+  "TRÊS COROAS": "VALE DO PARANHANA", "SANTA MARIA DO HERVAL": "VALE DO PARANHANA",
+  
+  // MILTON GARCIA DUTRA
+  "RONDA ALTA": "MILTON GARCIA DUTRA", "LIBERATO SALZANO": "MILTON GARCIA DUTRA",
+  "SELBACH": "ALTO JACUÍ",
+  
+  // COSTA DOCE
+  "CAMAQUÃ": "COSTA DOCE", "ARAMBARÉ": "COSTA DOCE",
+  "TAPES": "COSTA DOCE", "DOM FELICIANO": "COSTA DOCE",
+  
+  // REGIÃO METROPOLITANA
+  "PORTO ALEGRE": "METROPOLITANO DELTA DO JACUÍ",
+  "GRAVATAÍ": "METROPOLITANO DELTA DO JACUÍ",
+  "VIAMÃO": "METROPOLITANO DELTA DO JACUÍ",
+  "ALVORADA": "METROPOLITANO DELTA DO JACUÍ",
+  
+  // VALE DO RIO DOS SINOS
+  "NOVO HAMBURGO": "VALE DO RIO DOS SINOS",
+  "SÃO LEOPOLDO": "VALE DO RIO DOS SINOS",
+  "ESTEIO": "VALE DO RIO DOS SINOS",
+  
+  // SERRA
+  "GRAMADO": "SERRA", "CANELA": "SERRA", "NOVA PETRÓPOLIS": "SERRA"
+};
 
-function fmtMoney(v) { return 'R$ ' + (Number(v) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
-function escapeHTML(s) { return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }
-function badgeSituacao(s) {
-  const cls = (s || 'Aguardando').toLowerCase().replace(/\s+/g, '-').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  return `<span class="status status-${cls}">${escapeHTML(s || 'Aguardando')}</span>`;
-}
-function debounceBusca() { clearTimeout(debounceTimer); debounceTimer = setTimeout(carregarEmendas, 300); }
+// ===================================================================
+// LÓGICA DE PREENCHIMENTO AUTOMÁTICO (respeita edição manual)
+// ===================================================================
+const _inputMunicipio = document.getElementById('f-municipio');
+const _inputRegiao = document.getElementById('f-regiao');
+let regiaoEditadaManualmente = false;
 
-async function carregarEmendas() {
-  const q = document.getElementById('busca').value.trim();
-  const sit = document.getElementById('filtro-situacao').value;
-  const mun = document.getElementById('filtro-municipio').value;
-  const ano = document.getElementById('filtro-ano').value;
-  const params = new URLSearchParams();
-  if (q) params.append('q', q);
-  if (sit) params.append('situacao', sit);
-  if (mun) params.append('municipio', mun);
-  if (ano) params.append('ano', ano);
+// Quando o usuário edita a região manualmente, marca o flag
+_inputRegiao.addEventListener('input', function() {
+  regiaoEditadaManualmente = true;
+});
 
-  try {
-    const res = await fetch('/api/emendas?' + params);
-    if (!res.ok) throw new Error('Erro ' + res.status);
-    emendasCache = await res.json();
-    renderTabela();
-    atualizarKPIs();
-  } catch (err) { console.error(err); toast('Erro ao carregar emendas', 'error'); }
-}
-
-function renderTabela() {
-  const tbody = document.getElementById('tbody'); const empty = document.getElementById('empty');
-  const wrap = document.getElementById('tabela-wrap'); const cont = document.getElementById('contador'); const contLabel = document.getElementById('contador-label');
-
-  cont.textContent = emendasCache.length;
-  contLabel.textContent = emendasCache.length === 1 ? 'emenda' : 'emendas';
-
-  if (emendasCache.length === 0) { wrap.style.display = 'none'; empty.style.display = 'block'; return; }
-  wrap.style.display = 'block'; empty.style.display = 'none'; tbody.innerHTML = '';
-
-  emendasCache.forEach(e => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>
-        <div class="cell-main">${escapeHTML(e.numero_emenda)}</div>
-        <div class="cell-sub">${escapeHTML(e.ano)} ${e.numero_e ? '· NºE: ' + escapeHTML(e.numero_e) : ''}</div>
-      </td>
-      <td>
-        <div class="cell-main">${escapeHTML(e.municipio)}</div>
-        <div class="cell-sub">${escapeHTML(e.regiao || '—')}</div>
-      </td>
-      <td>
-        <div class="cell-main">${escapeHTML(e.entidade || '—')}</div>
-        <div class="cell-sub">${escapeHTML(e.cnpj || '—')}</div>
-      </td>
-      <td class="cell-obj"><div class="cell-main">${escapeHTML(e.objeto || '—')}</div></td>
-      <td class="cell-value">${fmtMoney(e.valor_empenhado)}<small>Pago: ${fmtMoney(e.valor_pago)}</small></td>
-      <td>${badgeSituacao(e.situacao)}</td>
-      <td class="cell-actions">
-        <div class="row-actions">
-          <button class="btn-icon" onclick="abrirModal(${e.id})" title="Editar">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-          </button>
-          <button class="btn-icon danger" onclick="excluirEmenda(${e.id})" title="Excluir">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
-          </button>
-        </div>
-      </td>
-    `;
-    tbody.appendChild(tr);
-  });
-}
-
-function atualizarKPIs() {
-  const total = emendasCache.length;
-  const empenhado = emendasCache.reduce((s, e) => s + (Number(e.valor_empenhado) || 0), 0);
-  const pago = emendasCache.reduce((s, e) => s + (Number(e.valor_pago) || 0), 0);
-  const execucao = emendasCache.filter(e => (e.situacao || '').toLowerCase() === 'em execução').length;
-  document.getElementById('kpi-total').textContent = total;
-  document.getElementById('kpi-empenhado').textContent = fmtMoney(empenhado);
-  document.getElementById('kpi-pago').textContent = fmtMoney(pago);
-  document.getElementById('kpi-execucao').textContent = execucao;
-}
-
-async function carregarFiltros() {
-  try {
-    const res = await fetch('/api/filtros'); if (!res.ok) return;
-    const f = await res.json();
-    document.getElementById('filtro-situacao').innerHTML = '<option value="">Todas as situações</option>' + f.situacoes.map(s => `<option>${escapeHTML(s)}</option>`).join('');
-    document.getElementById('filtro-municipio').innerHTML = '<option value="">Todos os municípios</option>' + f.municipios.map(m => `<option>${escapeHTML(m)}</option>`).join('');
-    document.getElementById('filtro-ano').innerHTML = '<option value="">Todos os anos</option>' + f.anos.map(a => `<option>${a}</option>`).join('');
-  } catch (err) { console.error(err); }
-}
-
-function carregarTudo() { carregarEmendas(); carregarFiltros(); }
-
-function abrirModal(id) {
-  document.getElementById('form-emenda').reset();
-  document.getElementById('f-id').value = '';
-  document.getElementById('f-versao').value = '';
-  document.getElementById('f-ano').value = new Date().getFullYear();
-  document.getElementById('modal-title').textContent = id ? 'Editar emenda' : 'Nova emenda';
-
-  if (id) {
-    const e = emendasCache.find(x => x.id === id);
-    if (e) {
-      document.getElementById('f-id').value = e.id; document.getElementById('f-versao').value = e.versao || 1;
-      document.getElementById('f-numero').value = e.numero_emenda || '';
-      document.getElementById('f-numero_e').value = e.numero_e || '';
-      document.getElementById('f-ano').value = e.ano || '';
-      document.getElementById('f-municipio').value = e.municipio || '';
-      document.getElementById('f-regiao').value = e.regiao || '';
-      document.getElementById('f-secretaria').value = e.secretaria || '';
-      document.getElementById('f-lider').value = e.lider || '';
-      document.getElementById('f-referencia').value = e.referencia || '';
-      document.getElementById('f-entidade').value = e.entidade || '';
-      document.getElementById('f-cnpj').value = e.cnpj || '';
-      document.getElementById('f-objeto').value = e.objeto || '';
-      document.getElementById('f-oficio').value = e.oficio || '';
-      document.getElementById('f-situacao').value = e.situacao || 'Aguardando';
-      document.getElementById('f-empenhado').value = e.valor_empenhado || '';
-      document.getElementById('f-pago').value = e.valor_pago || '';
-      document.getElementById('f-observacoes').value = e.observacoes || '';
-    }
+// Quando o usuário digita o município
+_inputMunicipio.addEventListener('input', function() {
+  // Só preenche automaticamente se a região não foi editada manualmente
+  if (!regiaoEditadaManualmente) {
+    const valor = this.value.toUpperCase().trim();
+    _inputRegiao.value = mapaRegioes[valor] || '';
   }
-  document.getElementById('modal-overlay').classList.add('open');
-  setTimeout(() => document.getElementById('f-numero').focus(), 100);
-}
-
-function fecharModal() { document.getElementById('modal-overlay').classList.remove('open'); }
-document.getElementById('modal-overlay').addEventListener('click', (e) => { if (e.target === e.currentTarget) fecharModal(); });
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape') fecharModal(); });
-
-async function salvarEmenda(ev) {
-  ev.preventDefault();
-  const id = document.getElementById('f-id').value;
-  const dados = {
-    numero_emenda: document.getElementById('f-numero').value.trim(),
-    numero_e: document.getElementById('f-numero_e').value.trim(),
-    ano: parseInt(document.getElementById('f-ano').value),
-    municipio: document.getElementById('f-municipio').value.trim(),
-    regiao: document.getElementById('f-regiao').value.trim(),
-    secretaria: document.getElementById('f-secretaria').value.trim(),
-    lider: document.getElementById('f-lider').value.trim(),
-    referencia: document.getElementById('f-referencia').value.trim(),
-    entidade: document.getElementById('f-entidade').value.trim(),
-    cnpj: document.getElementById('f-cnpj').value.trim(),
-    objeto: document.getElementById('f-objeto').value.trim(),
-    oficio: document.getElementById('f-oficio').value.trim(),
-    situacao: document.getElementById('f-situacao').value,
-    valor_empenhado: parseFloat(document.getElementById('f-empenhado').value) || 0,
-    valor_pago: parseFloat(document.getElementById('f-pago').value) || 0,
-    observacoes: document.getElementById('f-observacoes').value.trim(),
-  };
-  if (id) dados.versao = parseInt(document.getElementById('f-versao').value) || 1;
-
-  const btn = document.getElementById('btn-salvar'); btn.disabled = true; btn.textContent = 'Salvando...';
-
-  try {
-    const url = id ? `/api/emendas/${id}` : '/api/emendas';
-    const method = id ? 'PUT' : 'POST';
-    const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dados) });
-    if (res.status === 409) { toast('Esta emenda foi alterada por outro usuário. Recarregue.', 'error'); return; }
-    if (!res.ok) throw new Error('Erro ao salvar');
-    fecharModal(); toast(id ? 'Emenda atualizada' : 'Emenda criada', 'success'); carregarTudo();
-  } catch (err) { console.error(err); toast('Erro ao salvar emenda', 'error'); } finally { btn.disabled = false; btn.textContent = 'Salvar'; }
-}
-
-async function excluirEmenda(id) {
-  if (!confirm('Confirma a exclusão desta emenda?')) return;
-  try {
-    const res = await fetch(`/api/emendas/${id}`, { method: 'DELETE' });
-    if (!res.ok) throw new Error();
-    toast('Emenda excluída', 'success'); carregarTudo();
-  } catch (err) { toast('Erro ao excluir', 'error'); }
-}
-
-function toast(msg, tipo) {
-  const el = document.getElementById('toast'); document.getElementById('toast-msg').textContent = msg;
-  el.className = 'toast show toast-' + tipo; el.querySelector('.toast-icon').textContent = tipo === 'success' ? '✓' : '✕';
-  setTimeout(() => el.classList.remove('show'), 3000);
-}
-
-document.addEventListener('DOMContentLoaded', carregarTudo);
+});
 </script>
-</body>
-</html>
