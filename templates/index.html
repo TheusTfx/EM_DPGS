@@ -30,7 +30,7 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
 .header-actions .btn-primary:hover { background: #f1f5f9; }
 
 .container { max-width: 1280px; margin: 0 auto; padding: 24px; }
-.kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+.kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
 .kpi { background: var(--surface); border: 1px solid var(--border-light); border-left: 3px solid var(--primary); padding: 14px 18px; }
 .kpi-label { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px; }
 .kpi-value { font-size: 20px; font-weight: 600; letter-spacing: -.01em; }
@@ -139,6 +139,10 @@ tbody tr:hover .row-actions { opacity: 1; }
       <button class="btn btn-ghost btn-sm" onclick="carregarTudo()" title="Recarregar">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
         Atualizar
+      </button>
+      <button class="btn btn-ghost btn-sm" onclick="abrirModalImportar()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Importar
       </button>
       <button class="btn btn-primary btn-sm" onclick="abrirModal()">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -251,6 +255,42 @@ tbody tr:hover .row-actions { opacity: 1; }
         <button type="submit" class="btn btn-primary" id="btn-salvar">Salvar</button>
       </div>
     </form>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-importar">
+  <div class="modal" style="max-width: 620px;">
+    <div class="modal-header">
+      <div class="modal-title">Importar planilha de emendas</div>
+      <button class="btn-icon" onclick="fecharModalImportar()" aria-label="Fechar">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Aba do Excel</label>
+          <select id="imp-aba">
+            <option value="2026">2026</option>
+          </select>
+        </div>
+        <div class="form-group span-2">
+          <label>Arquivo (.xlsx)</label>
+          <input type="file" id="imp-arquivo" accept=".xlsx,.xls"
+                 style="text-transform: none; padding: 6px;">
+        </div>
+      </div>
+      <div id="imp-preview" style="margin-top: 14px; font-size: 13px; color: var(--text-muted);"></div>
+      <div style="margin-top: 10px; font-size: 12px; color: var(--text-subtle);">
+        Emendas com mesmo <strong>Nº</strong> e <strong>ano</strong> serão atualizadas (upsert).
+        Valores já pagos não são zerados.
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" onclick="fecharModalImportar()">Cancelar</button>
+      <button type="button" class="btn btn-ghost" onclick="previewImportar()">Pré-visualizar</button>
+      <button type="button" class="btn btn-primary" onclick="executarImportar()" id="btn-importar">Importar</button>
+    </div>
   </div>
 </div>
 
@@ -473,7 +513,6 @@ function atualizarKPIs() {
   document.getElementById('kpi-total').textContent = total;
   document.getElementById('kpi-empenhado').textContent = fmtMoney(empenhado);
   document.getElementById('kpi-pago').textContent = fmtMoney(pago);
-  document.getElementById('kpi-execucao').textContent = execucao;
 }
 
 async function carregarFiltros() {
@@ -576,6 +615,67 @@ function toast(msg, tipo) {
 }
 
 // ============================================================
+// IMPORTAÇÃO DE PLANILHA
+// ============================================================
+function abrirModalImportar() {
+  document.getElementById('imp-arquivo').value = '';
+  document.getElementById('imp-preview').innerHTML = '';
+  document.getElementById('modal-importar').classList.add('open');
+}
+
+function fecharModalImportar() {
+  document.getElementById('modal-importar').classList.remove('open');
+}
+
+async function previewImportar() {
+  const arquivo = document.getElementById('imp-arquivo').files[0];
+  const aba = document.getElementById('imp-aba').value;
+  const preview = document.getElementById('imp-preview');
+  if (!arquivo) { toast('Selecione um arquivo', 'error'); return; }
+  preview.innerHTML = 'Lendo planilha…';
+  const fd = new FormData();
+  fd.append('arquivo', arquivo);
+  fd.append('aba', aba);
+  try {
+    const res = await fetch('/api/importar/preview', { method: 'POST', body: fd });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.erro || 'Erro');
+    preview.innerHTML =
+      '<strong>' + data.total_linhas + '</strong> linhas válidas' +
+      (data.ignoradas ? ' · <span style="color: var(--warning);">' + data.ignoradas + ' ignoradas</span>' : '') +
+      '<br><small style="color: var(--text-subtle);">Amostra: ' +
+      data.amostra.map(r => r.numero_emenda + ' · ' + r.municipio + ' · R$ ' + r.valor_empenhado).join('<br>') +
+      '</small>';
+  } catch (err) {
+    preview.innerHTML = '<span style="color: var(--danger);">' + escapeHTML(err.message) + '</span>';
+  }
+}
+
+async function executarImportar() {
+  const arquivo = document.getElementById('imp-arquivo').files[0];
+  const aba = document.getElementById('imp-aba').value;
+  if (!arquivo) { toast('Selecione um arquivo', 'error'); return; }
+  if (!confirm('Importar a aba ' + aba + '? Emendas com mesmo Nº e ano serão atualizadas.')) return;
+  const btn = document.getElementById('btn-importar');
+  btn.disabled = true; btn.textContent = 'Importando…';
+  const fd = new FormData();
+  fd.append('arquivo', arquivo);
+  fd.append('aba', aba);
+  try {
+    const res = await fetch('/api/importar', { method: 'POST', body: fd });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.erro || 'Erro ao importar');
+    toast(data.importadas + ' emendas importadas', 'success');
+    fecharModalImportar();
+    carregarTudo();
+  } catch (err) {
+    toast('Falha: ' + err.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Importar';
+  }
+}
+
+// ============================================================
 // INICIALIZAÇÃO (roda só depois do DOM carregar)
 // ============================================================
 document.addEventListener('DOMContentLoaded', function() {
@@ -583,8 +683,11 @@ document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('modal-overlay').addEventListener('click', function(e) {
     if (e.target === e.currentTarget) fecharModal();
   });
+  document.getElementById('modal-importar').addEventListener('click', function(e) {
+    if (e.target === e.currentTarget) fecharModalImportar();
+  });
   document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') fecharModal();
+    if (e.key === 'Escape') { fecharModal(); fecharModalImportar(); }
   });
   carregarTudo();
 });
