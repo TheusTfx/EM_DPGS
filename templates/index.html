@@ -81,6 +81,7 @@ tbody tr:hover .row-actions { opacity: 1; }
 
 .status { display: inline-block; padding: 2px 8px; font-size: 11.5px; font-weight: 500; border: 1px solid transparent; border-radius: 2px; }
 .status-aguardando { background: var(--neutral-bg); color: var(--neutral); border-color: #cbd5e1; }
+.status-empenhado  { background: var(--warning-bg); color: var(--warning); border-color: #fde68a; }
 .status-pago       { background: var(--success-bg); color: var(--success); border-color: #bbf7d0; }
 .status-cancelada  { background: var(--danger-bg); color: var(--danger); border-color: #fecaca; }
 
@@ -169,6 +170,7 @@ tbody tr:hover .row-actions { opacity: 1; }
 <main class="container">
   <section class="kpis">
     <div class="kpi"><div class="kpi-label">Total de emendas</div><div class="kpi-value" id="kpi-total">—</div></div>
+    <div class="kpi"><div class="kpi-label">Valor empenhado</div><div class="kpi-value small" id="kpi-empenhado">—</div></div>
     <div class="kpi"><div class="kpi-label">Valor pago</div><div class="kpi-value small" id="kpi-pago">—</div></div>
   </section>
 
@@ -194,6 +196,7 @@ tbody tr:hover .row-actions { opacity: 1; }
             <th class="sortable" data-sort="municipio">Município / Região</th>
             <th class="sortable" data-sort="entidade">Entidade / CNPJ</th>
             <th class="sortable" data-sort="objeto">Objeto</th>
+            <th class="sortable right" data-sort="valor_empenhado">Valores</th>
             <th class="sortable" data-sort="situacao">Situação</th>
             <th class="right">Ações</th>
           </tr>
@@ -282,9 +285,10 @@ tbody tr:hover .row-actions { opacity: 1; }
             </div>
             <div class="form-group"><label>Situação</label>
               <select id="f-situacao">
-                <option>Aguardando</option><option>Pago</option><option>Cancelada</option>
+                <option>Aguardando</option><option>Empenhado</option><option>Pago</option><option>Cancelada</option>
               </select>
             </div>
+            <div class="form-group"><label>Valor Empenhado (R$)</label><input type="number" step="0.01" id="f-empenhado"></div>
             <div class="form-group"><label>Valor Pago (R$)</label><input type="number" step="0.01" id="f-pago"></div>
             <div class="form-group full"><label>Observações</label><textarea id="f-observacoes" class="keep-case"></textarea></div>
           </div>
@@ -607,8 +611,10 @@ function renderTabela() {
 
 function atualizarKPIs() {
   const total = emendasCache.length;
+  const empenhado = emendasCache.reduce((s, e) => s + (Number(e.valor_empenhado) || 0), 0);
   const pago = emendasCache.reduce((s, e) => s + (Number(e.valor_pago) || 0), 0);
   document.getElementById('kpi-total').textContent = total;
+  document.getElementById('kpi-empenhado').textContent = fmtMoney(empenhado);
   document.getElementById('kpi-pago').textContent = fmtMoney(pago);
 }
 
@@ -683,6 +689,7 @@ function abrirFicha(id) {
     <div class="ficha-section">
       <div class="ficha-section-title">Valores</div>
       <div class="ficha-grid">
+        <div class="ficha-field"><label>Valor Empenhado</label><div style="font-weight: 600;">${fmtMoney(e.valor_empenhado)}</div></div>
         <div class="ficha-field"><label>Valor Pago</label><div style="font-weight: 600;">${fmtMoney(e.valor_pago)}</div></div>
       </div>
     </div>
@@ -729,6 +736,7 @@ function abrirModal(id) {
       document.getElementById('f-objeto').value = e.objeto || '';
       document.getElementById('f-justificativa').value = e.justificativa || '';
       document.getElementById('f-situacao').value = e.situacao || 'Aguardando';
+      document.getElementById('f-empenhado').value = e.valor_empenhado || '';
       document.getElementById('f-pago').value = e.valor_pago || '';
       document.getElementById('f-observacoes').value = e.observacoes || '';
       if (e.regiao) regiaoEditadaManualmente = true;
@@ -757,6 +765,7 @@ async function salvarEmenda(ev) {
     objeto: document.getElementById('f-objeto').value.trim(),
     justificativa: document.getElementById('f-justificativa').value.trim(),
     situacao: document.getElementById('f-situacao').value,
+    valor_empenhado: parseFloat(document.getElementById('f-empenhado').value) || 0,
     valor_pago: parseFloat(document.getElementById('f-pago').value) || 0,
     observacoes: document.getElementById('f-observacoes').value.trim(),
   };
