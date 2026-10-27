@@ -1,4 +1,7 @@
+import hashlib
 import os
+import re
+import unicodedata
 from datetime import datetime
 from io import BytesIO
 
@@ -257,11 +260,17 @@ def filtros():
 # ============================================================
 # IMPORTAÇÃO
 # ============================================================
-MAPA_2026 = {
+NSC = "não consta na planilha"
+PREFIXO_OBS = "Situação (planilha):"
+
+# Cabeçalhos (em MAIÚSCULAS) -> campo do banco. Serve para todas as abas.
+MAPA_COLUNAS = {
     "SITUAÇÃO":      "situacao_bruta",
     "MUNICÍPIO":     "municipio",
     "SECRETARIA":    "secretaria",
+    "SEC":           "secretaria",
     "Nº E":          "numero_emenda",
+    "Nº P":          "numero_emenda",   # 2025: nº do processo = nº da emenda
     "VALOR":         "valor_empenhado",
     "OFÍCIO":        "oficio",
     "ANO":           "ano",
@@ -274,9 +283,85 @@ MAPA_2026 = {
     "JUSTIFICATIVA": "justificativa",
 }
 
+# tem_situacao=False: a aba não traz a coluna SITUAÇÃO (2024/2025).
+# Nesses casos a reimportação NÃO mexe em situação/observações já existentes.
 ABAS_CONFIGURADAS = {
-    "2026": MAPA_2026,
+    "2024": {"tem_situacao": False},
+    "2025": {"tem_situacao": False},
+    "2026": {"tem_situacao": True},
 }
+
+CAMPOS_TEXTO = ['objeto', 'secretaria', 'lider', 'oficio', 'referencia',
+                'entidade', 'cnpj', 'regiao', 'justificativa']
+
+COLUNAS_INSERT = [
+    'numero_emenda', 'ano', 'municipio', 'objeto',
+    'valor_empenhado', 'valor_pago', 'situacao',
+    'secretaria', 'lider', 'oficio', 'referencia',
+    'entidade', 'cnpj', 'regiao', 'justificativa',
+    'situacao_bruta', 'observacoes', 'atualizado_em',
+]
+
+# Município -> Região (COREDES RS). Mesmo mapa usado no formulário.
+_REGIOES = {
+    "NOROESTE COLONIAL": ["IJUÍ", "SANTO AUGUSTO", "CÉSAR AUGUSTO", "AJURICABA"],
+    "ALTO JACUÍ": ["CRUZ ALTA", "IBIRUBÁ", "SELBACH", "TAPERA", "SALDANHA MARINHO",
+                   "SANTA BÁRBARA DO SUL", "QUINZE DE NOVEMBRO"],
+    "CELEIRO – ITIBERÊ OSÓRIO": ["TRÊS PASSOS", "FREDERICO WESTPHALEN", "HORIZONTINA",
+                                 "PALMEIRA DAS MISSÕES", "SARANDI", "TUCUNDUVA",
+                                 "SÃO MARTINHO", "VISTA GAÚCHA"],
+    "VINHEDOS": ["BENTO GONÇALVES", "GARIBALDI", "CARLOS BARBOSA", "MONTE BELO DO SUL",
+                 "PINTO BANDEIRA", "SANTA TEREZA", "VALE REAL", "NOVA ROMA DO SUL"],
+    "ALTO URUGUAI – LEONEL BRIZOLA": ["ERECHIM", "GETÚLIO VARGAS", "ARATIBA", "JACUTINGA",
+                                      "SEVERIANO DE ALMEIDA"],
+    "GRANDE GUAPORÉ": ["GUAPORÉ", "ENCONSTADO", "MUÇUM", "DOIS LAJEADOS", "COTIPOARA",
+                       "COTIPORÃ", "SÉRIO", "PUTINGA", "NOVA BASSANO"],
+    "TRABALHISTA DO PLANALTO": ["PASSO FUNDO", "CARAZINHO", "TAPEJARA", "CAMPO NOVO", "CIRÍACO",
+                                "COXILHA", "SANTA CECÍLIA DO SUL", "NÃO-ME-TOQUE"],
+    "ZONA SUL": ["PELOTAS", "RIO GRANDE", "CAMAQUÃ", "CANGUÇU", "SÃO JOSÉ DO NORTE", "CRISTAL",
+                 "TAPES", "ARAMBARÉ", "DOM FELICIANO", "SENTINELA DO SUL", "CHUVISCA"],
+    "FRONTEIRA OESTE": ["URUGUAIANA", "ALEGRETE", "SÃO BORJA", "ITAQUI", "BARRA DO QUARAÍ",
+                        "QUARAÍ", "MANOEL VIANA", "MAÇAMBARÁ"],
+    "FRONTEIRA NOROESTE - PAULO MADEIRA": ["SANTA ROSA", "SANTO CRISTO", "GIRUÁ", "TRÊS DE MAIO",
+                                           "TUPARENDI", "BOA VISTA DO BURICÁ", "NOVO MACHADO"],
+    "FRONTEIRA SUDESTE": ["BAGÉ", "DOM PEDRITO", "HERVAL", "PEDRAS ALTAS", "PINHEIRO MACHADO",
+                          "ACEGUÁ", "CANDIOTA", "HULHA NEGRA"],
+    "VALE DO JACUÍ": ["CACHOEIRA DO SUL", "RIO PARDO", "SOBRADINHO", "CERRO BRANCO",
+                      "NOVO CABRAIS", "PANTANO GRANDE", "AGUDO", "PARAÍSO DO SUL"],
+    "GRANDE CAXIAS": ["CAXIAS DO SUL", "FLORES DA CUNHA", "SÃO MARCOS", "NOVA PÁDUA", "FARROUPILHA"],
+    "JOSÉ AMÉRICO FREIRE": ["SÃO JERÔNIMO", "CHARQUEADAS", "ARROIO DOS RATOS", "ELDORADO DO SUL"],
+    "VALE DO ALTO TAQUARI": ["LAJEADO", "ARROIO DO MEIO", "ROCA SALES", "TRAVESSEIRO", "CAPITÃO",
+                             "POUSO NOVO", "PROGRESSO", "FORQUETINHA"],
+    "ALTO DA SERRA DO BOTUCARAÍ": ["SOLEDADE", "ESPUMOSO", "FONTOURA XAVIER", "NOVA PALMA", "TUNAS"],
+    "GRANDE SANTA MARIA": ["SANTA MARIA", "JÚLIO DE CASTILHOS", "SÃO PEDRO DO SUL",
+                           "RESTINGA SÉCA", "TOROPI", "SILVEIRA MARTINS"],
+    "ALTO DA SERRA": ["VACARIA", "BOM JESUS", "MONTE ALEGRE DOS CAMPOS", "CAMPESTRE DA SERRA",
+                      "SÃO JOSÉ DOS AUSENTES", "JAQUIRANA"],
+    "MEDIO ALTO URUGUAI – JOÃO GOULART": ["VICENTE DUTRA", "SÃO PEDRO DAS MISSÕES", "TRINDADE DO SUL"],
+    "GRANDE LAGOA": ["OSÓRIO", "TRAMANDAÍ", "IMBÉ", "XANGRI-LÁ", "MOSTARDAS", "PALMARES DO SUL",
+                     "CIDREIRA", "CAPIVARI DO SUL"],
+    "LITORAL NORTE": ["TORRES", "ARROIO DO SAL", "DOM PEDRO DE ALCÂNTARA", "TRÊS CACHOEIRAS",
+                      "MAQUINÉ", "MORRINHOS DO SUL"],
+    "VALE DO PARANHANA": ["TAQUARA", "IGREJINHA", "PAROBÉ", "ROLANTE", "TRÊS COROAS",
+                          "SANTA MARIA DO HERVAL"],
+    "MILTON GARCIA DUTRA": ["RONDA ALTA", "LIBERATO SALZANO"],
+    "METROPOLITANO DELTA DO JACUÍ": ["PORTO ALEGRE", "GRAVATAÍ", "VIAMÃO", "ALVORADA"],
+    "VALE DO RIO DOS SINOS": ["NOVO HAMBURGO", "SÃO LEOPOLDO", "ESTEIO"],
+    "SERRA": ["GRAMADO", "CANELA", "NOVA PETRÓPOLIS"],
+}
+
+
+def _sem_acento(s):
+    s = unicodedata.normalize('NFD', str(s))
+    return ''.join(c for c in s if unicodedata.category(c) != 'Mn').upper().strip()
+
+
+# chave sem acento -> região (assim "CATUIPE" e "CATUIPÉ" funcionam igual)
+MAPA_REGIOES = {_sem_acento(m): reg for reg, muns in _REGIOES.items() for m in muns}
+
+
+def _regiao_do_mapa(municipio):
+    return MAPA_REGIOES.get(_sem_acento(municipio))
 
 
 def _txt(v):
@@ -296,94 +381,156 @@ def _txt(v):
     return s if s else None
 
 
+def _valor(v):
+    try:
+        if v is None or pd.isna(v):
+            return 0.0
+        if isinstance(v, str):
+            v = v.replace('R$', '').strip()
+            if ',' in v:
+                v = v.replace('.', '').replace(',', '.')
+        return float(v)
+    except (ValueError, TypeError):
+        return 0.0
+
+
+def _ano(v):
+    try:
+        if v is None or pd.isna(v):
+            return None
+        return int(float(v))
+    except (ValueError, TypeError):
+        return None
+
+
 def _derivar_situacao(texto_bruto):
-    """Mapeia o texto livre da planilha para o ENUM da app.
-    'Em execução' foi eliminada — tudo que não é Pago/Cancelada/Liquidada vira Aguardando.
-    """
-    if not texto_bruto:
-        return "Aguardando"
-    t = str(texto_bruto).upper()
-    if "PAGO" in t:
+    """Só 'PAGO' vira Pago. Todo o resto (inclusive texto de acompanhamento) é Aguardando.
+    'Cancelada' continua existindo, mas só por edição manual."""
+    if texto_bruto and re.match(r'^\s*PAGO\b', str(texto_bruto).upper()):
         return "Pago"
-    if "CANCEL" in t:
-        return "Cancelada"
-    if "LIQUIDA" in t:
-        return "Empenhado"
     return "Aguardando"
 
 
+def _codigo_sem_numero(ano, municipio, lider, objeto, valor, secretaria, ocorrencia):
+    base = '|'.join([str(ano), _sem_acento(municipio), _sem_acento(lider or ''),
+                     _sem_acento(objeto or ''), f'{valor:.2f}', _sem_acento(secretaria or '')])
+    cod = 'S/N-' + hashlib.sha1(base.encode('utf-8')).hexdigest()[:8].upper()
+    return cod if ocorrencia == 1 else f'{cod}-{ocorrencia}'
+
+
 def _processar_dataframe(aba):
-    mapa = ABAS_CONFIGURADAS[aba]
+    cfg = ABAS_CONFIGURADAS[aba]
 
     arquivo = request.files.get('arquivo')
     if not arquivo or arquivo.filename == '':
         raise ValueError("Nenhum arquivo enviado")
 
     df = pd.read_excel(BytesIO(arquivo.read()), sheet_name=aba, engine='openpyxl')
-    df = df.rename(columns=mapa)
+    df.columns = [' '.join(str(c).split()).upper() for c in df.columns]
+    df = df.rename(columns=MAPA_COLUNAS)
+    df = df.dropna(how='all')
 
-    for col in ('numero_emenda', 'ano', 'municipio'):
-        if col not in df.columns:
-            raise ValueError(f"Coluna obrigatória ausente na planilha: {col}")
-
-    df = df.dropna(subset=['numero_emenda', 'ano', 'municipio'])
+    if 'municipio' not in df.columns:
+        raise ValueError("Coluna obrigatória ausente na planilha: MUNICÍPIO")
 
     registros = []
     ignoradas = 0
+    resumo = {
+        'pagas': 0, 'aguardando': 0, 'sem_numero': 0,
+        'nao_consta': {c: 0 for c in CAMPOS_TEXTO},
+    }
+    ocorrencias = {}
+    agora = datetime.now().isoformat(timespec='seconds')
+
     for _, row in df.iterrows():
-        try:
-            numero = _txt(row['numero_emenda'])
-            municipio = _txt(row['municipio'])
-            try:
-                ano_val = int(row['ano'])
-            except (ValueError, TypeError):
-                ignoradas += 1
-                continue
-            if not numero or not municipio:
-                ignoradas += 1
-                continue
-
-            situacao_bruta = _txt(row.get('situacao_bruta'))
-            situacao = _derivar_situacao(situacao_bruta)
-
-            try:
-                valor = float(row.get('valor_empenhado') or 0)
-            except (ValueError, TypeError):
-                valor = 0.0
-
-            valor_pago = valor if situacao == 'Pago' else 0.0
-
-            registros.append((
-                numero,
-                ano_val,
-                municipio,
-                _txt(row.get('objeto')),
-                valor,
-                valor_pago,
-                situacao,
-                _txt(row.get('secretaria')),
-                _txt(row.get('lider')),
-                _txt(row.get('oficio')),
-                _txt(row.get('referencia')),
-                _txt(row.get('entidade')),
-                _txt(row.get('cnpj')),
-                _txt(row.get('regiao')),
-                _txt(row.get('justificativa')),
-                situacao_bruta,
-                datetime.now().isoformat(timespec='seconds'),
-            ))
-        except Exception:
+        municipio = _txt(row.get('municipio'))
+        if not municipio:
             ignoradas += 1
             continue
 
-    colunas = [
-        'numero_emenda', 'ano', 'municipio', 'objeto',
-        'valor_empenhado', 'valor_pago', 'situacao',
-        'secretaria', 'lider', 'oficio', 'referencia',
-        'entidade', 'cnpj', 'regiao', 'justificativa',
-        'situacao_bruta', 'atualizado_em',
+        ano_val = _ano(row.get('ano')) or int(aba)   # 2025 vem sem ANO -> usa o nome da aba
+        valor = _valor(row.get('valor_empenhado'))
+
+        campos = {}
+        for c in CAMPOS_TEXTO:
+            if c == 'regiao':
+                v = _txt(row.get('regiao')) or _regiao_do_mapa(municipio)
+            else:
+                v = _txt(row.get(c))
+            if not v:
+                v = NSC
+                resumo['nao_consta'][c] += 1
+            campos[c] = v
+
+        numero = _txt(row.get('numero_emenda'))
+        if not numero:
+            resumo['sem_numero'] += 1
+            chave = (ano_val, municipio, campos['lider'], campos['objeto'], valor, campos['secretaria'])
+            ocorrencias[chave] = ocorrencias.get(chave, 0) + 1
+            numero = _codigo_sem_numero(ano_val, municipio, campos['lider'], campos['objeto'],
+                                        valor, campos['secretaria'], ocorrencias[chave])
+
+        situacao_bruta = _txt(row.get('situacao_bruta')) if cfg['tem_situacao'] else None
+        situacao = _derivar_situacao(situacao_bruta)
+        valor_pago = valor if situacao == 'Pago' else 0.0
+
+        if situacao == 'Pago':
+            resumo['pagas'] += 1
+            observacoes = None
+        else:
+            resumo['aguardando'] += 1
+            observacoes = f"{PREFIXO_OBS} {situacao_bruta or NSC}"
+
+        registros.append({
+            'numero_emenda': numero, 'ano': ano_val, 'municipio': municipio,
+            'objeto': campos['objeto'], 'valor_empenhado': valor, 'valor_pago': valor_pago,
+            'situacao': situacao, 'secretaria': campos['secretaria'], 'lider': campos['lider'],
+            'oficio': campos['oficio'], 'referencia': campos['referencia'],
+            'entidade': campos['entidade'], 'cnpj': campos['cnpj'], 'regiao': campos['regiao'],
+            'justificativa': campos['justificativa'], 'situacao_bruta': situacao_bruta,
+            'observacoes': observacoes, 'atualizado_em': agora,
+        })
+
+    return registros, ignoradas, resumo
+
+
+# Remove a linha "Situação (planilha): ..." antiga antes de gravar a nova,
+# preservando qualquer outra observação digitada à mão.
+_SQL_OBS_SEM_LINHA_ANTIGA = (
+    r"NULLIF(BTRIM(regexp_replace(COALESCE(emendas.observacoes, ''), "
+    r"'(^|\n)Situação \(planilha\):[^\n]*', '', 'g'), ' ' || chr(10)), '')"
+)
+
+
+def _montar_upsert(tem_situacao):
+    sets = [
+        "municipio = EXCLUDED.municipio",
+        "valor_empenhado = EXCLUDED.valor_empenhado",
+        "atualizado_em = EXCLUDED.atualizado_em",
     ]
-    return registros, colunas, ignoradas
+    # "não consta na planilha" nunca apaga um dado já preenchido no sistema
+    for c in CAMPOS_TEXTO:
+        sets.append(
+            f"{c} = CASE WHEN EXCLUDED.{c} = '{NSC}' "
+            f"THEN COALESCE(NULLIF(emendas.{c}, ''), EXCLUDED.{c}) "
+            f"ELSE EXCLUDED.{c} END"
+        )
+    if tem_situacao:
+        sets += [
+            "situacao = CASE WHEN emendas.situacao = 'Cancelada' "
+            "THEN emendas.situacao ELSE EXCLUDED.situacao END",
+            "situacao_bruta = EXCLUDED.situacao_bruta",
+            "observacoes = NULLIF(BTRIM(CONCAT_WS(chr(10), "
+            f"{_SQL_OBS_SEM_LINHA_ANTIGA}, EXCLUDED.observacoes), ' ' || chr(10)), '')",
+        ]
+    sets += [
+        "valor_pago = GREATEST(emendas.valor_pago, EXCLUDED.valor_pago)",
+        "versao = emendas.versao + 1",
+    ]
+    return (
+        f"INSERT INTO emendas ({', '.join(COLUNAS_INSERT)}) VALUES %s "
+        f"ON CONFLICT (ano, numero_emenda) DO UPDATE SET {', '.join(sets)}"
+    )
 
 
 @app.route('/api/importar/preview', methods=['POST'])
@@ -392,15 +539,20 @@ def importar_preview():
     if aba not in ABAS_CONFIGURADAS:
         return jsonify({'erro': f'Aba {aba} ainda não configurada'}), 400
     try:
-        registros, _, ignoradas = _processar_dataframe(aba)
+        registros, ignoradas, resumo = _processar_dataframe(aba)
         return jsonify({
             'aba': aba,
             'total_linhas': len(registros),
             'ignoradas': ignoradas,
+            'pagas': resumo['pagas'],
+            'aguardando': resumo['aguardando'],
+            'sem_numero': resumo['sem_numero'],
+            'nao_consta': {k: v for k, v in resumo['nao_consta'].items() if v},
             'amostra': [
                 {
-                    'numero_emenda': r[0], 'ano': r[1], 'municipio': r[2],
-                    'valor_empenhado': r[4], 'situacao_bruta': r[15], 'situacao': r[6],
+                    'numero_emenda': r['numero_emenda'], 'ano': r['ano'],
+                    'municipio': r['municipio'], 'valor_empenhado': r['valor_empenhado'],
+                    'situacao': r['situacao'], 'observacoes': r['observacoes'],
                 }
                 for r in registros[:5]
             ],
@@ -416,32 +568,17 @@ def importar():
         return jsonify({'erro': f'Aba {aba} ainda não configurada'}), 400
 
     try:
-        registros, colunas, ignoradas = _processar_dataframe(aba)
+        registros, ignoradas, resumo = _processar_dataframe(aba)
         if not registros:
             return jsonify({'erro': 'Nenhuma linha válida para importar'}), 400
 
-        colunas_sql = ', '.join(colunas)
-        updates_normais = ', '.join(
-            f'{c} = EXCLUDED.{c}' for c in colunas
-            if c not in ('numero_emenda', 'ano', 'valor_pago')
-        )
-        updates_sql = (
-            f"{updates_normais}, "
-            "valor_pago = GREATEST(emendas.valor_pago, EXCLUDED.valor_pago), "
-            "versao = emendas.versao + 1"
-        )
-
-        query = f"""
-            INSERT INTO emendas ({colunas_sql})
-            VALUES %s
-            ON CONFLICT (ano, numero_emenda) DO UPDATE SET
-                {updates_sql}
-        """
+        tuplas = [tuple(r[c] for c in COLUNAS_INSERT) for r in registros]
+        query = _montar_upsert(ABAS_CONFIGURADAS[aba]['tem_situacao'])
 
         db = get_db()
         try:
             with db.cursor() as cur:
-                execute_values(cur, query, registros, page_size=500)
+                execute_values(cur, query, tuplas, page_size=500)
             db.commit()
         except Exception:
             db.rollback()
@@ -452,6 +589,7 @@ def importar():
             'aba': aba,
             'importadas': len(registros),
             'ignoradas': ignoradas,
+            'sem_numero': resumo['sem_numero'],
         })
     except Exception as e:
         import traceback
