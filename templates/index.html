@@ -81,7 +81,6 @@ tbody tr:hover .row-actions { opacity: 1; }
 
 .status { display: inline-block; padding: 2px 8px; font-size: 11.5px; font-weight: 500; border: 1px solid transparent; border-radius: 2px; }
 .status-aguardando { background: var(--neutral-bg); color: var(--neutral); border-color: #cbd5e1; }
-.status-empenhado  { background: var(--warning-bg); color: var(--warning); border-color: #fde68a; }
 .status-pago       { background: var(--success-bg); color: var(--success); border-color: #bbf7d0; }
 .status-cancelada  { background: var(--danger-bg); color: var(--danger); border-color: #fecaca; }
 
@@ -285,7 +284,7 @@ tbody tr:hover .row-actions { opacity: 1; }
             </div>
             <div class="form-group"><label>Situação</label>
               <select id="f-situacao">
-                <option>Aguardando</option><option>Empenhado</option><option>Pago</option><option>Cancelada</option>
+                <option>Aguardando</option><option>Pago</option><option>Cancelada</option>
               </select>
             </div>
             <div class="form-group"><label>Valor Empenhado (R$)</label><input type="number" step="0.01" id="f-empenhado"></div>
@@ -535,7 +534,7 @@ function sortBy(column) {
     sortDirection = sortDirection === 'desc' ? 'asc' : 'desc';
   } else {
     sortColumn = column;
-    sortDirection = 'desc'; // 1º clique = DESC
+    sortDirection = 'desc';
   }
   atualizarIndicadoresSort();
   renderTabela();
@@ -558,18 +557,15 @@ function getListaOrdenada() {
     if (va == null && vb == null) return 0;
     if (va == null) return 1;
     if (vb == null) return -1;
-    // Números
     if (typeof va === 'number' && typeof vb === 'number') {
       return sortDirection === 'desc' ? vb - va : va - vb;
     }
-    // Número em campo texto (ex: "1748")
     const sa = String(va).trim();
     const sb = String(vb).trim();
     if (/^\d+(\.\d+)?$/.test(sa) && /^\d+(\.\d+)?$/.test(sb)) {
       const na = parseFloat(sa), nb = parseFloat(sb);
       return sortDirection === 'desc' ? nb - na : na - nb;
     }
-    // Texto
     const la = sa.toLowerCase(), lb = sb.toLowerCase();
     return sortDirection === 'desc'
       ? lb.localeCompare(la, 'pt-BR')
@@ -864,12 +860,10 @@ async function executarImportar() {
 document.addEventListener('DOMContentLoaded', function() {
   configurarAutoRegiao();
 
-  // Ordenação das colunas
   document.querySelectorAll('thead th.sortable').forEach(th => {
     th.addEventListener('click', () => sortBy(th.dataset.sort));
   });
 
-  // Fechar modais clicando fora
   document.getElementById('modal-overlay').addEventListener('click', function(e) {
     if (e.target === e.currentTarget) fecharModal();
   });
@@ -880,7 +874,6 @@ document.addEventListener('DOMContentLoaded', function() {
     if (e.target === e.currentTarget) fecharModalImportar();
   });
 
-  // ESC
   document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') { fecharModal(); fecharFicha(); fecharModalImportar(); }
   });
