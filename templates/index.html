@@ -746,6 +746,9 @@ function fecharModal() { document.getElementById('modal-overlay').classList.remo
 
 async function salvarEmenda(ev) {
   ev.preventDefault();
+  const btn = document.getElementById('btn-salvar');
+  if (btn.disabled) return;                    // evita duplo-submit
+
   const id = document.getElementById('f-id').value;
   const dados = {
     numero_emenda: document.getElementById('f-numero').value.trim(),
@@ -760,23 +763,50 @@ async function salvarEmenda(ev) {
     cnpj: document.getElementById('f-cnpj').value.trim(),
     objeto: document.getElementById('f-objeto').value.trim(),
     justificativa: document.getElementById('f-justificativa').value.trim(),
-    situacao: document.getElementById('f-situacao').value,
+    situacao: document.getElementById('f-situacao').value || 'Aguardando',
     valor_empenhado: parseFloat(document.getElementById('f-empenhado').value) || 0,
     valor_pago: parseFloat(document.getElementById('f-pago').value) || 0,
     observacoes: document.getElementById('f-observacoes').value.trim(),
   };
   if (id) dados.versao = parseInt(document.getElementById('f-versao').value) || 1;
-  const btn = document.getElementById('btn-salvar');
-  btn.disabled = true; btn.textContent = 'Salvando...';
+
+  // Feedback visual
+  btn.disabled = true;
+  btn.textContent = 'Salvando...';
+
+  let sucesso = false;
+  let mensagem = 'Erro ao salvar emenda';
+  let tipo = 'error';
+
   try {
     const url = id ? '/api/emendas/' + id : '/api/emendas';
     const method = id ? 'PUT' : 'POST';
-    const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dados) });
-    if (res.status === 409) { toast('Esta emenda foi alterada por outro usuário. Recarregue.', 'error'); return; }
-    if (!res.ok) throw new Error('Erro ao salvar');
-    fecharModal(); toast(id ? 'Emenda atualizada' : 'Emenda criada', 'success'); carregarTudo();
-  } catch (err) { console.error(err); toast('Erro ao salvar emenda', 'error'); }
-  finally { btn.disabled = false; btn.textContent = 'Salvar'; }
+    const res = await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(dados),
+    });
+
+    if (res.status === 409) {
+      mensagem = 'Esta emenda foi alterada por outro usuário. Recarregue a página.';
+    } else if (!res.ok) {
+      throw new Error('Erro ao salvar: ' + res.status);
+    } else {
+      sucesso = true;
+      mensagem = id ? 'Emenda atualizada' : 'Emenda criada';
+      tipo = 'success';
+    }
+  } catch (err) {
+    console.error(err);
+  } finally {
+    // RESTAURA o botão ANTES de fechar o modal
+    btn.disabled = false;
+    btn.textContent = 'Salvar';
+  }
+
+  if (sucesso) fecharModal();
+  toast(mensagem, tipo);
+  if (sucesso) carregarTudo();
 }
 
 async function excluirEmenda(id) {
@@ -864,15 +894,27 @@ document.addEventListener('DOMContentLoaded', function() {
     th.addEventListener('click', () => sortBy(th.dataset.sort));
   });
 
-  document.getElementById('modal-overlay').addEventListener('click', function(e) {
-    if (e.target === e.currentTarget) fecharModal();
+function setupOverlayClose(overlayEl, closeFn) {
+  let downOnOverlay = false;
+  const setDown = e => { downOnOverlay = (e.target === overlayEl); };
+  overlayEl.addEventListener('mousedown', setDown);
+  overlayEl.addEventListener('touchstart', setDown, { passive: true });
+  overlayEl.addEventListener('click', function(e) {
+    if (downOnOverlay && e.target === overlayEl) closeFn();
+    downOnOverlay = false;
   });
-  document.getElementById('modal-ficha').addEventListener('click', function(e) {
-    if (e.target === e.currentTarget) fecharFicha();
-  });
-  document.getElementById('modal-importar').addEventListener('click', function(e) {
-    if (e.target === e.currentTarget) fecharModalImportar();
-  });
+}
+
+setupOverlayClose(document.getElementById('modal-overlay'), fecharModal);
+setupOverlayClose(document.getElementById('modal-ficha'), fecharFicha);
+setupOverlayClose(document.getElementById('modal-importar'), fecharModalImportar);
+
+// Previne Enter de submeter o form acidentalmente
+document.getElementById('form-emenda').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
+    e.preventDefault();
+  }
+});
 
   document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') { fecharModal(); fecharFicha(); fecharModalImportar(); }
