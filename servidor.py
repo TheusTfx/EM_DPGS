@@ -4,6 +4,7 @@ Start (Render): gunicorn servidor:app --timeout 120
 Env: DATABASE_URL (Supabase pooler, porta 6543, ?sslmode=require&pgbouncer=true)
 """
 import hashlib
+import hmac
 import json
 import os
 import re
@@ -15,7 +16,7 @@ from io import BytesIO
 
 import pandas as pd
 import psycopg2
-import psycopg2.extras
+import psycopg2.errors
 from psycopg2.extras import RealDictCursor, execute_values, Json
 from flask import Flask, request, jsonify, render_template, g, abort
 
@@ -28,7 +29,7 @@ PREFIXO_OBS = "Situação (planilha):"
 
 
 # ============================================================
-# HELPERS BÁSICOS (definidos antes de qualquer uso)
+# HELPERS BÁSICOS
 # ============================================================
 def _sem_acento(s):
     s = unicodedata.normalize('NFD', str(s))
@@ -44,7 +45,7 @@ def _hash_senha(senha, salt=None):
 def _verifica_senha(senha, hashed):
     try:
         salt, _ = hashed.split('$', 1)
-        return _hash_senha(senha, salt) == hashed
+        return hmac.compare_digest(_hash_senha(senha, salt), hashed)
     except Exception:
         return False
 
@@ -60,7 +61,7 @@ def _dias_desde(iso):
 
 
 # ============================================================
-# REGIÕES (COREDES RS) — DICT, não set
+# REGIÕES (COREDES RS)
 # ============================================================
 _REGIOES = {
     "NOROESTE COLONIAL": ["IJUÍ", "SANTO AUGUSTO", "CÉSAR AUGUSTO", "AJURICABA"],
@@ -115,7 +116,6 @@ _REGIOES = {
     "SERRA": ["GRAMADO", "CANELA", "NOVA PETRÓPOLIS"],
 }
 
-# chave sem acento -> nome da região
 MAPA_REGIOES = {_sem_acento(m): reg for reg, muns in _REGIOES.items() for m in muns}
 
 
@@ -216,7 +216,12 @@ def init_db():
                 excluida_por TEXT,
                 dados JSONB)''')
 
-            cur.execute("SELECT 1 FROM usuarios WHERE usuario = 'admin'")
+            # Limpeza de sessões antigas
+            cur.execute("DELETE FROM sessoes WHERE expira_em IS NOT NULL "
+                        "AND expira_em < NOW() - INTERVAL '30 days'")
+
+            # Cria admin se não existir
+            cur.execute("SELECT 1 FROM usuarios WHERE LOWER(usuario) = 'admin'")
             if not cur.fetchone():
                 cur.execute('''INSERT INTO usuarios (nome, usuario, senha_hash, admin, criado_em)
                                VALUES ('Administrador','admin',%s,true,%s)''',
@@ -323,11 +328,12 @@ def favicon():
 @app.route('/api/login', methods=['POST'])
 def api_login():
     d = request.get_json(silent=True) or {}
-    usuario = (d.get('usuario') or '').strip()
+    usuario = (d.get('usuario') or '').strip().lower()
     senha = d.get('senha') or ''
     db = get_db()
     with db.cursor() as cur:
-        cur.execute('SELECT * FROM usuarios WHERE usuario = %s', (usuario,))
+        # LOWER() nos dois lados — aceita 'admin', 'Admin', 'ADMIN'
+        cur.execute('SELECT * FROM usuarios WHERE LOWER(usuario) = %s', (usuario,))
         row = cur.fetchone()
     if not row or not _verifica_senha(senha, row['senha_hash']):
         return jsonify({'erro': 'Usuário ou senha inválidos'}), 401
@@ -377,15 +383,20 @@ def api_listar_usuarios():
 @admin_obrigatorio
 def api_criar_usuario():
     d = request.get_json(silent=True) or {}
-    if not d.get('nome') or not d.get('usuario') or len(d.get('senha') or '') < 6:
+    login = (d.get('usuario') or '').strip().lower()   # normaliza p/ minúsculo
+    if not d.get('nome') or not login or len(d.get('senha') or '') < 6:
         return jsonify({'erro': 'Nome, usuário e senha (mín. 6) são obrigatórios'}), 400
     db = get_db()
     try:
         with db.cursor() as cur:
+            # Impede duplicidade mesmo se já houver alguma linha em maiúscula
+            cur.execute('SELECT 1 FROM usuarios WHERE LOWER(usuario) = %s', (login,))
+            if cur.fetchone():
+                return jsonify({'erro': 'Este login já existe'}), 400
             cur.execute('''INSERT INTO usuarios (nome, usuario, senha_hash, admin, criado_em)
                            VALUES (%s,%s,%s,%s,%s) RETURNING id''',
-                        (d['nome'].strip(), d['usuario'].strip(),
-                         _hash_senha(d['senha']), bool(d.get('admin')),
+                        (d['nome'].strip(), login, _hash_senha(d['senha']),
+                         bool(d.get('admin')),
                          datetime.now().isoformat(timespec='seconds')))
             new_id = cur.fetchone()['id']
         db.commit()
@@ -508,7 +519,8 @@ def listar_emendas():
     params = []
     if q:
         like = f'%{q}%'
-        sql += ' AND (numero_emenda ILIKE %s OR objeto ILIKE %s OR municipio ILIKE %s OR entidade ILIKE %s OR lider ILIKE %s OR cnpj ILIKE %s)'
+        sql += (' AND (numero_emenda ILIKE %s OR objeto ILIKE %s OR municipio ILIKE %s'
+                ' OR entidade ILIKE %s OR lider ILIKE %s OR cnpj ILIKE %s)')
         params += [like, like, like, like, like, like]
     if municipio:
         sql += ' AND municipio = %s'; params.append(municipio)
@@ -517,7 +529,8 @@ def listar_emendas():
     if ano:
         sql += ' AND ano = %s'; params.append(ano)
     if parada:
-        sql += " AND atualizado_em IS NOT NULL AND (CURRENT_DATE - atualizado_em::date) >= %s"
+        sql += (" AND atualizado_em IS NOT NULL AND atualizado_em <> '' "
+                "AND (CURRENT_DATE - atualizado_em::date) >= %s")
         params.append(int(parada))
     if incompletos:
         sql += f""" AND (COALESCE(entidade,'') = '' OR COALESCE(entidade,'') = '{NSC}'
@@ -664,6 +677,9 @@ def atualizar_emenda(eid):
         registrar_log('editou', emenda_id=eid, numero=row['numero_emenda'],
                       municipio=row['municipio'], ano=row['ano'])
         return jsonify({'ok': True})
+    except psycopg2.errors.UniqueViolation:
+        db.rollback()
+        return jsonify({'erro': 'Já existe outra emenda com este nº para este ano'}), 400
     except Exception as e:
         db.rollback()
         return jsonify({'erro': str(e), 'tipo': type(e).__name__}), 500
@@ -766,7 +782,6 @@ def api_estatisticas():
         d = _dias_desde(e.get('atualizado_em')) or 0
         faixas[2 if d >= 60 else 1 if d >= 30 else 0]['n'] += 1
 
-    # tempo até pagamento
     tempos = []
     tempos_sec = {}
     for e in em:
@@ -801,7 +816,6 @@ def api_estatisticas():
         por_ano_agg[a]['valor'] += float(e['valor_empenhado'] or 0)
         por_ano_agg[a]['pago'] += float(e['valor_pago'] or 0)
 
-    # pagamentos por mês
     pag_mes = {}
     for e in em:
         if e['situacao'] == 'Pago' and e.get('pago_em') and e['valor_pago']:
@@ -898,9 +912,19 @@ def api_restaurar(lid):
             'situacao_bruta', 'pago_em', 'data_entrada')]
         placeholders = ','.join(['%s'] * len(cols))
         vals = [dados.get(c) for c in cols]
-        cur.execute(f'INSERT INTO emendas ({",".join(cols)}) VALUES ({placeholders})', vals)
-        cur.execute('DELETE FROM lixeira WHERE id = %s', (lid,))
-    db.commit()
+        try:
+            cur.execute(f'INSERT INTO emendas ({",".join(cols)}) VALUES ({placeholders})', vals)
+            cur.execute('DELETE FROM lixeira WHERE id = %s', (lid,))
+            db.commit()
+        except psycopg2.errors.UniqueViolation:
+            db.rollback()
+            return jsonify({
+                'erro': 'Já existe uma emenda ativa com o mesmo nº e ano. '
+                        'Exclua ou renomeie antes de restaurar.'
+            }), 409
+        except Exception as e:
+            db.rollback()
+            return jsonify({'erro': str(e)}), 500
     registrar_log('restaurou', numero=dados.get('numero_emenda'),
                   municipio=dados.get('municipio'), ano=dados.get('ano'))
     return jsonify({'ok': True})
