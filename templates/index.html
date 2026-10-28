@@ -3,190 +3,329 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Radar de Emendas</title>
+<title>Controle de Emendas</title>
 <style>
 :root {
-  --bg: #f1f5f9; --surface: #ffffff; --border: #cbd5e1; --border-light: #e2e8f0;
-  --text: #0f172a; --text-muted: #475569; --text-subtle: #94a3b8;
-  --primary: #1e3a8a; --primary-hover: #1e40af;
-  --success: #166534; --success-bg: #dcfce7; --warning: #92400e; --warning-bg: #fef3c7;
-  --info: #1e40af; --info-bg: #dbeafe; --danger: #991b1b; --danger-bg: #fee2e2;
-  --neutral: #334155; --neutral-bg: #e2e8f0;
+  --bg: #f2f4f7; --surface: #ffffff; --border: #d3d9e1; --border-soft: #e5e8ed;
+  --text: #1c2430; --muted: #5a6575; --faint: #8a94a3;
+  --accent: #24405f; --accent-hover: #1a3049; --accent-soft: #e8edf3;
+  --ok: #2e6b4b; --ok-bg: #e6f0ea; --warn: #85580f; --warn-bg: #f6eddb;
+  --bad: #99302f; --bad-bg: #f6e3e2; --neutral: #3d4856; --neutral-bg: #e8ebf0;
+  --c-pago: #2e6b4b; --c-aguardando: #8995a7; --c-cancelada: #99302f;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+body { font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", Arial, sans-serif; background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
 button { font-family: inherit; cursor: pointer; }
 input, select, textarea { font-family: inherit; font-size: 14px; }
+[hidden] { display: none !important; }
 
-.header { background: var(--primary); color: #fff; border-bottom: 2px solid #0f172a; }
-.header-inner { max-width: 1280px; margin: 0 auto; padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-.brand { display: flex; flex-direction: column; line-height: 1.2; }
-.brand-title { font-weight: 600; font-size: 16px; letter-spacing: -.01em; }
-.header-actions { display: flex; gap: 8px; }
-.header-actions .btn-ghost { background: transparent; color: #fff; border-color: rgba(255,255,255,.3); }
-.header-actions .btn-ghost:hover { background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.5); }
-.header-actions .btn-primary { background: #fff; color: var(--primary); border-color: #fff; }
-.header-actions .btn-primary:hover { background: #f1f5f9; }
+/* ---------- Login ---------- */
+.login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+.login-card { width: 100%; max-width: 360px; background: var(--surface); border: 1px solid var(--border); padding: 32px 28px; }
+.login-title { font-size: 18px; font-weight: 600; color: var(--accent); margin-bottom: 4px; }
+.login-sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+.login-card .form-group { margin-bottom: 14px; }
+.login-card .btn { width: 100%; justify-content: center; padding: 10px; margin-top: 6px; }
+.login-erro { color: var(--bad); font-size: 13px; min-height: 20px; margin-top: 10px; }
 
-.container { max-width: 1280px; margin: 0 auto; padding: 24px; }
-.kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
-.kpi { background: var(--surface); border: 1px solid var(--border-light); border-left: 3px solid var(--primary); padding: 14px 18px; }
-.kpi-label { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px; }
-.kpi-value { font-size: 20px; font-weight: 600; letter-spacing: -.01em; }
+/* ---------- Cabeçalho ---------- */
+.header { background: var(--accent); color: #fff; }
+.header-inner { max-width: 1320px; margin: 0 auto; padding: 0 24px; display: flex; align-items: stretch; justify-content: space-between; gap: 20px; min-height: 52px; }
+.brand-title { font-weight: 600; font-size: 15px; letter-spacing: .01em; display: flex; align-items: center; padding-right: 8px; white-space: nowrap; }
+.nav { display: flex; align-items: stretch; gap: 2px; flex: 1; overflow-x: auto; }
+.nav button { background: none; border: none; color: rgba(255,255,255,.72); padding: 0 14px; font-size: 13.5px; font-weight: 500; border-bottom: 3px solid transparent; white-space: nowrap; }
+.nav button:hover { color: #fff; }
+.nav button.active { color: #fff; border-bottom-color: #fff; }
+.header-actions { display: flex; align-items: center; gap: 8px; }
+.header-actions .btn-ghost { background: transparent; color: #fff; border-color: rgba(255,255,255,.35); }
+.header-actions .btn-ghost:hover { background: rgba(255,255,255,.12); }
+.header-actions .btn-primary { background: #fff; color: var(--accent); border-color: #fff; }
+.header-actions .btn-primary:hover { background: #eef1f5; }
+.user-menu { position: relative; }
+.user-btn { background: none; border: 1px solid rgba(255,255,255,.35); color: #fff; padding: 5px 10px; font-size: 13px; border-radius: 2px; }
+.user-btn:hover { background: rgba(255,255,255,.12); }
+.dropdown { position: absolute; right: 0; top: calc(100% + 6px); background: var(--surface); border: 1px solid var(--border); min-width: 220px; z-index: 50; box-shadow: 0 4px 14px rgba(20,30,45,.12); }
+.dropdown button { display: block; width: 100%; text-align: left; background: none; border: none; padding: 9px 14px; font-size: 13px; color: var(--text); }
+.dropdown button:hover { background: var(--bg); }
+.dropdown .sep { border-top: 1px solid var(--border-soft); margin: 4px 0; }
+.dropdown .who { padding: 10px 14px; font-size: 12px; color: var(--muted); border-bottom: 1px solid var(--border-soft); }
+
+.container { max-width: 1320px; margin: 0 auto; padding: 22px 24px 40px; }
+.page-title { font-size: 17px; font-weight: 600; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.page-title small { font-weight: 400; color: var(--muted); font-size: 13px; }
+
+/* ---------- KPIs ---------- */
+.kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
+.kpis.six { grid-template-columns: repeat(6, 1fr); }
+.kpi { background: var(--surface); border: 1px solid var(--border-soft); border-top: 2px solid var(--accent); padding: 12px 16px; }
+.kpi-label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 4px; }
+.kpi-value { font-size: 19px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .kpi-value.small { font-size: 16px; }
+.kpi-sub { font-size: 12px; color: var(--muted); margin-top: 1px; }
 
-.toolbar { background: var(--surface); border: 1px solid var(--border-light); padding: 12px 16px; margin-bottom: 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-.search-wrap { flex: 1; min-width: 220px; position: relative; }
-.search-wrap svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-subtle); pointer-events: none; }
-.search-wrap input { width: 100%; padding: 8px 12px 8px 32px; border: 1px solid var(--border); background: var(--surface); outline: none; transition: border-color .12s; color: var(--text); }
-.search-wrap input:focus { border-color: var(--primary); }
-.filter-select { padding: 8px 10px; min-width: 150px; border: 1px solid var(--border); background: var(--surface); color: var(--text); outline: none; cursor: pointer; transition: border-color .12s; }
-.filter-select:focus { border-color: var(--primary); }
+/* ---------- Filtros ---------- */
+.toolbar { background: var(--surface); border: 1px solid var(--border-soft); padding: 12px 14px; margin-bottom: 12px; display: grid; gap: 10px; }
+.toolbar-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.search-wrap { flex: 1; min-width: 240px; position: relative; }
+.search-wrap svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--faint); pointer-events: none; }
+.search-wrap input, .toolbar input[type=text] { width: 100%; padding: 8px 12px 8px 32px; border: 1px solid var(--border); background: var(--surface); outline: none; color: var(--text); }
+.filter-select, .toolbar input[type=number] { padding: 8px 10px; min-width: 140px; border: 1px solid var(--border); background: var(--surface); color: var(--text); outline: none; }
+.toolbar input[type=number] { min-width: 0; width: 150px; }
+.search-wrap input:focus, .filter-select:focus, .toolbar input:focus { border-color: var(--accent); }
+.check { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); cursor: pointer; }
+.chips { display: inline-flex; gap: 4px; }
+.chip { border: 1px solid var(--border); background: var(--surface); color: var(--muted); font-size: 12px; padding: 4px 9px; border-radius: 2px; }
+.chip:hover { background: var(--bg); }
+.chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
 
+/* ---------- Botões ---------- */
 .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border: 1px solid transparent; font-weight: 500; font-size: 13px; transition: background .12s, border-color .12s; white-space: nowrap; border-radius: 2px; }
-.btn-primary { background: var(--primary); color: #fff; border-color: var(--primary); }
-.btn-primary:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
-.btn-ghost { background: transparent; color: var(--text-muted); border-color: var(--border); }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+.btn-primary:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); }
+.btn-ghost { background: transparent; color: var(--muted); border-color: var(--border); }
 .btn-ghost:hover { background: var(--bg); color: var(--text); }
 .btn-secondary { background: var(--surface); color: var(--text); border-color: var(--border); }
 .btn-secondary:hover { background: var(--bg); }
+.btn-danger { background: var(--surface); color: var(--bad); border-color: #dcb4b3; }
+.btn-danger:hover { background: var(--bad-bg); }
 .btn-sm { padding: 5px 10px; font-size: 12px; }
-.btn-icon { width: 30px; height: 30px; padding: 0; border-radius: 2px; background: transparent; border: 1px solid transparent; display: inline-flex; align-items: center; justify-content: center; color: var(--text-muted); transition: all .12s; }
+.btn-icon { width: 30px; height: 30px; padding: 0; border-radius: 2px; background: transparent; border: 1px solid transparent; display: inline-flex; align-items: center; justify-content: center; color: var(--muted); }
 .btn-icon:hover { background: var(--bg); color: var(--text); border-color: var(--border); }
-.btn-icon.danger:hover { background: var(--danger-bg); color: var(--danger); border-color: #fca5a5; }
+.btn-icon.danger:hover { background: var(--bad-bg); color: var(--bad); border-color: #dcb4b3; }
 
-.table-card { background: var(--surface); border: 1px solid var(--border-light); overflow: hidden; overflow-x: auto; }
-.table-header { padding: 12px 18px; border-bottom: 1px solid var(--border-light); display: flex; align-items: center; justify-content: space-between; font-size: 13px; color: var(--text-muted); background: #f8fafc; }
+/* ---------- Tabela ---------- */
+.table-card { background: var(--surface); border: 1px solid var(--border-soft); overflow-x: auto; }
+.table-header { padding: 10px 16px; border-bottom: 1px solid var(--border-soft); display: flex; align-items: center; justify-content: space-between; font-size: 13px; color: var(--muted); background: #f8f9fb; }
 .table-header strong { color: var(--text); font-weight: 600; }
-table { width: 100%; border-collapse: collapse; min-width: 1100px; }
-thead th { text-align: left; padding: 10px 18px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); background: #f8fafc; border-bottom: 1px solid var(--border); white-space: nowrap; }
-thead th.right { text-align: right; }
-thead th.sortable { cursor: pointer; user-select: none; transition: background .12s; }
-thead th.sortable:hover { background: #e2e8f0; color: var(--text); }
+table { width: 100%; border-collapse: collapse; min-width: 1120px; }
+thead th { text-align: left; padding: 9px 16px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); background: #f8f9fb; border-bottom: 1px solid var(--border); white-space: nowrap; }
+thead th.right, td.right { text-align: right; }
+thead th.sortable { cursor: pointer; user-select: none; }
+thead th.sortable:hover { background: var(--neutral-bg); color: var(--text); }
 thead th.sortable::after { content: '⇅'; margin-left: 5px; font-size: 10px; opacity: .35; }
-thead th.sorted-desc::after { content: '▼'; opacity: 1; color: var(--primary); }
-thead th.sorted-asc::after  { content: '▲'; opacity: 1; color: var(--primary); }
-tbody tr { border-bottom: 1px solid var(--border-light); transition: background .1s; cursor: pointer; }
+thead th.sorted-desc::after { content: '▼'; opacity: 1; color: var(--accent); }
+thead th.sorted-asc::after { content: '▲'; opacity: 1; color: var(--accent); }
+tbody tr { border-bottom: 1px solid var(--border-soft); cursor: pointer; }
 tbody tr:last-child { border-bottom: none; }
-tbody tr:hover { background: #f8fafc; }
-tbody td { padding: 12px 18px; vertical-align: middle; }
-.cell-main { font-weight: 500; color: var(--text); margin-bottom: 2px; }
-.cell-sub { font-size: 12px; color: var(--text-muted); }
-.cell-obj { max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cell-value { text-align: right; font-variant-numeric: tabular-nums; font-weight: 500; }
-.cell-value small { display: block; font-weight: 400; font-size: 11px; color: var(--text-muted); }
-.cell-actions { width: 90px; text-align: right; }
+tbody tr:hover { background: #f7f8fa; }
+tbody td { padding: 11px 16px; vertical-align: middle; }
+.cell-main { font-weight: 500; margin-bottom: 1px; }
+.cell-sub { font-size: 12px; color: var(--muted); }
+.cell-obj { max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cell-value { text-align: right; font-variant-numeric: tabular-nums; font-weight: 500; white-space: nowrap; }
+.cell-value small { display: block; font-weight: 400; font-size: 11.5px; color: var(--muted); }
+.cell-actions { width: 84px; text-align: right; }
 .row-actions { display: flex; gap: 2px; justify-content: flex-end; opacity: 0; transition: opacity .12s; }
 tbody tr:hover .row-actions { opacity: 1; }
+.faint { color: var(--faint); }
+.dias { font-variant-numeric: tabular-nums; font-size: 13px; }
+.dias.alerta { color: var(--warn); font-weight: 600; }
+.dias.critico { color: var(--bad); font-weight: 600; }
 
-.status { display: inline-block; padding: 2px 8px; font-size: 11.5px; font-weight: 500; border: 1px solid transparent; border-radius: 2px; }
-.status-aguardando { background: var(--neutral-bg); color: var(--neutral); border-color: #cbd5e1; }
-.status-pago       { background: var(--success-bg); color: var(--success); border-color: #bbf7d0; }
-.status-cancelada  { background: var(--danger-bg); color: var(--danger); border-color: #fecaca; }
+.status { display: inline-block; padding: 1px 8px; font-size: 12px; font-weight: 500; border: 1px solid transparent; border-radius: 2px; }
+.status-aguardando { background: var(--neutral-bg); color: var(--neutral); border-color: #cdd3dc; }
+.status-pago { background: var(--ok-bg); color: var(--ok); border-color: #bcd6c6; }
+.status-cancelada { background: var(--bad-bg); color: var(--bad); border-color: #e3bfbe; }
 
-.empty { padding: 60px 24px; text-align: center; color: var(--text-muted); }
-.empty-icon { width: 44px; height: 44px; margin: 0 auto 14px; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; color: var(--text-subtle); }
+.empty { padding: 56px 24px; text-align: center; color: var(--muted); }
 .empty-title { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
 
-.modal-overlay { position: fixed; inset: 0; background: rgba(15,23,42,.5); z-index: 100; display: none; align-items: flex-start; justify-content: center; padding: 40px 16px; overflow-y: auto; }
+/* ---------- Modais ---------- */
+.modal-overlay { position: fixed; inset: 0; background: rgba(20,30,45,.5); z-index: 100; display: none; align-items: flex-start; justify-content: center; padding: 40px 16px; overflow-y: auto; }
 .modal-overlay.open { display: flex; }
-.modal { background: var(--surface); border: 1px solid var(--border); width: 100%; max-width: 800px; }
-.modal-header { padding: 16px 22px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; background: #f8fafc; }
-.modal-title { font-size: 15px; font-weight: 600; color: var(--text); }
+.modal { background: var(--surface); border: 1px solid var(--border); width: 100%; max-width: 820px; }
+.modal-header { padding: 14px 22px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; background: #f8f9fb; }
+.modal-title { font-size: 15px; font-weight: 600; }
 .modal-body { padding: 22px; }
-.modal-footer { padding: 14px 22px; border-top: 1px solid var(--border); background: #f8fafc; display: flex; justify-content: flex-end; gap: 8px; }
+.modal-footer { padding: 12px 22px; border-top: 1px solid var(--border); background: #f8f9fb; display: flex; justify-content: flex-end; gap: 8px; }
 
-.form-section { margin-bottom: 20px; border-bottom: 1px solid var(--border-light); padding-bottom: 16px; }
+.form-section { margin-bottom: 20px; border-bottom: 1px solid var(--border-soft); padding-bottom: 16px; }
 .form-section:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
-.form-section-title { font-size: 12px; font-weight: 700; color: var(--primary); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 12px; }
+.form-section-title { font-size: 11.5px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 12px; }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
 .form-group { display: flex; flex-direction: column; gap: 5px; }
 .form-group.full { grid-column: 1 / -1; }
 .form-group.span-2 { grid-column: span 2; }
-.form-group label { font-size: 12px; font-weight: 500; color: var(--text-muted); }
-.form-group label .req { color: var(--danger); }
-.form-group input, .form-group select, .form-group textarea { padding: 8px 10px; border: 1px solid var(--border); background: var(--surface); outline: none; transition: border-color .12s; width: 100%; color: var(--text); text-transform: uppercase; }
-.form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--primary); }
+.form-group label { font-size: 12px; font-weight: 500; color: var(--muted); }
+.form-group label .req { color: var(--bad); }
+.form-group input, .form-group select, .form-group textarea { padding: 8px 10px; border: 1px solid var(--border); background: var(--surface); outline: none; width: 100%; color: var(--text); text-transform: uppercase; }
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--accent); }
 .form-group textarea { resize: vertical; min-height: 70px; }
-.form-group textarea.keep-case { text-transform: none; }
+.form-group .keep-case, .form-group input[type=password], .form-group input[type=date], .form-group input[type=file], .form-group input[type=email] { text-transform: none; }
+.hint { font-size: 12px; color: var(--muted); }
 
-/* Ficha (visualização) */
-.ficha-section { margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid var(--border-light); }
+.ficha-section { margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid var(--border-soft); }
 .ficha-section:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
-.ficha-section-title { font-size: 11px; font-weight: 700; color: var(--primary); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 10px; }
+.ficha-section-title { font-size: 11px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 10px; }
 .ficha-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
-.ficha-field { display: flex; flex-direction: column; gap: 3px; }
+.ficha-field { display: flex; flex-direction: column; gap: 2px; }
 .ficha-field.full { grid-column: 1 / -1; margin-bottom: 4px; }
-.ficha-field label { font-size: 11px; font-weight: 500; color: var(--text-muted); text-transform: uppercase; letter-spacing: .03em; }
-.ficha-field div { font-size: 13.5px; color: var(--text); }
-.ficha-field div.pre { white-space: pre-wrap; line-height: 1.5; }
+.ficha-field label { font-size: 11px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
+.ficha-field div { font-size: 13.5px; word-break: break-word; }
+.ficha-field div.pre { white-space: pre-wrap; }
+.ficha-sub { font-size: 12px; font-weight: 600; color: var(--muted); margin: 0 0 8px; }
 
-.toast { position: fixed; bottom: 20px; right: 20px; background: var(--surface); border: 1px solid var(--border); padding: 10px 14px; font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 8px; z-index: 200; transform: translateY(20px); opacity: 0; transition: all .2s ease-out; pointer-events: none; max-width: 340px; }
+/* ---------- Atividade ---------- */
+.log-list { background: var(--surface); border: 1px solid var(--border-soft); }
+.log-item { padding: 12px 16px; border-bottom: 1px solid var(--border-soft); display: grid; grid-template-columns: 150px 1fr; gap: 14px; }
+.log-item:last-child { border-bottom: none; }
+.log-when { font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.log-who { color: var(--text); font-weight: 500; }
+.log-head { font-size: 13.5px; }
+.log-head a { color: var(--accent); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.log-acao { display: inline-block; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; padding: 0 6px; margin-right: 6px; border-radius: 2px; background: var(--neutral-bg); color: var(--neutral); }
+.log-acao.criou, .log-acao.restaurou { background: var(--ok-bg); color: var(--ok); }
+.log-acao.excluiu { background: var(--bad-bg); color: var(--bad); }
+.log-acao.importou { background: var(--accent-soft); color: var(--accent); }
+.log-mud { margin-top: 6px; font-size: 12.5px; }
+.log-mud div { padding: 2px 0; color: var(--muted); }
+.log-mud b { color: var(--text); font-weight: 600; }
+.log-mud .de { text-decoration: line-through; color: var(--faint); }
+.hist-mini .log-item { grid-template-columns: 1fr; gap: 2px; padding: 9px 0; }
+
+/* ---------- Painel ---------- */
+.grid-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.card { background: var(--surface); border: 1px solid var(--border-soft); padding: 16px 18px; }
+.card.wide { grid-column: 1 / -1; }
+.card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.card-title { font-size: 13.5px; font-weight: 600; }
+.card-note { font-size: 12px; color: var(--muted); margin-top: 8px; }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 2px; overflow: hidden; }
+.seg button { background: var(--surface); border: none; padding: 3px 10px; font-size: 12px; color: var(--muted); }
+.seg button + button { border-left: 1px solid var(--border); }
+.seg button.on { background: var(--accent); color: #fff; }
+.bar-row { display: grid; grid-template-columns: minmax(90px, 36%) 1fr auto; gap: 10px; align-items: center; padding: 3px 0; font-size: 13px; }
+.bar-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bar-track { height: 10px; background: var(--accent-soft); }
+.bar-fill { height: 100%; background: var(--accent); }
+.bar-val { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 12.5px; min-width: 56px; text-align: right; }
+.donut-wrap { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; }
+.legend div { display: flex; align-items: center; gap: 8px; padding: 3px 0; font-size: 13px; }
+.legend i { width: 10px; height: 10px; display: inline-block; }
+.big-nums { display: flex; gap: 28px; flex-wrap: wrap; margin-bottom: 12px; }
+.big-nums .n { font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.big-nums .l { font-size: 12px; color: var(--muted); }
+.sem-dados { color: var(--muted); font-size: 13px; padding: 8px 0; }
+svg text { font-family: inherit; }
+
+/* ---------- Importação ---------- */
+.imp-bloco { border: 1px solid var(--border-soft); margin-top: 12px; }
+.imp-bloco-h { padding: 8px 12px; background: #f8f9fb; font-weight: 600; font-size: 13px; border-bottom: 1px solid var(--border-soft); }
+.imp-bloco-b { padding: 10px 12px; font-size: 13px; }
+.imp-bloco details { margin-top: 8px; }
+.imp-bloco summary { cursor: pointer; color: var(--accent); font-size: 12.5px; }
+.imp-lista { max-height: 220px; overflow-y: auto; margin-top: 6px; border: 1px solid var(--border-soft); padding: 6px 10px; font-size: 12.5px; }
+.imp-lista .it { padding: 5px 0; border-bottom: 1px solid var(--border-soft); }
+.imp-lista .it:last-child { border-bottom: none; }
+.tag { display: inline-block; padding: 0 6px; font-size: 11.5px; border-radius: 2px; background: var(--neutral-bg); color: var(--neutral); margin-right: 4px; }
+.tag.nova { background: var(--ok-bg); color: var(--ok); }
+.tag.alt { background: var(--warn-bg); color: var(--warn); }
+
+.toast { position: fixed; bottom: 20px; right: 20px; background: var(--surface); border: 1px solid var(--border); padding: 10px 14px; font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 8px; z-index: 300; transform: translateY(20px); opacity: 0; transition: all .2s ease-out; pointer-events: none; max-width: 380px; }
 .toast.show { transform: translateY(0); opacity: 1; }
-.toast-success { border-left: 3px solid var(--success); }
-.toast-success .toast-icon { color: var(--success); }
-.toast-error { border-left: 3px solid var(--danger); }
-.toast-error .toast-icon { color: var(--danger); }
+.toast-success { border-left: 3px solid var(--ok); }
+.toast-error { border-left: 3px solid var(--bad); }
 
-@media (max-width: 900px) { .kpis { grid-template-columns: repeat(2, 1fr); } .form-grid { grid-template-columns: 1fr 1fr; } .ficha-grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 1000px) { .kpis.six { grid-template-columns: repeat(3, 1fr); } .grid-cards { grid-template-columns: 1fr; } }
+@media (max-width: 900px) { .kpis { grid-template-columns: repeat(2, 1fr); } .form-grid, .ficha-grid { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 640px) {
-  .container { padding: 16px; } .header-inner { padding: 12px 16px; }
-  .kpis { grid-template-columns: 1fr 1fr; gap: 8px; } .kpi { padding: 12px; } .kpi-value { font-size: 16px; }
-  .toolbar { padding: 10px; gap: 8px; } .filter-select { min-width: 0; flex: 1; }
-  .form-grid { grid-template-columns: 1fr; } .form-group.span-2 { grid-column: 1; }
-  .ficha-grid { grid-template-columns: 1fr; }
-  thead { display: none; } tbody tr { display: block; padding: 12px 0; border-bottom: 2px solid var(--border); }
-  tbody td { display: block; padding: 4px 16px; border: none; }
-  .cell-value, .cell-actions { text-align: left; } .row-actions { opacity: 1; justify-content: flex-start; margin-top: 8px; }
-  .cell-obj { max-width: none; white-space: normal; }
+  .container { padding: 14px; } .header-inner { padding: 0 12px; flex-wrap: wrap; gap: 0; }
+  .brand-title { padding: 10px 0; } .header-actions { padding: 8px 0; margin-left: auto; } .nav { order: 3; flex-basis: 100%; }
+  .nav button { padding: 10px 12px; }
+  .kpis, .kpis.six { grid-template-columns: 1fr 1fr; gap: 8px; } .kpi-value { font-size: 16px; }
+  .form-grid, .ficha-grid { grid-template-columns: 1fr; } .form-group.span-2 { grid-column: 1; }
+  .log-item { grid-template-columns: 1fr; gap: 2px; }
+  .filter-select { min-width: 0; flex: 1; }
+  thead { display: none; } table { min-width: 0; } tbody tr { display: block; padding: 10px 0; border-bottom: 2px solid var(--border); }
+  tbody td { display: block; padding: 3px 14px; } .cell-value, .cell-actions { text-align: left; } td.right { text-align: left; }
+  .row-actions { opacity: 1; justify-content: flex-start; margin-top: 6px; } .cell-obj { max-width: none; white-space: normal; }
 }
 </style>
 </head>
 <body>
 
+<!-- ============================================================ LOGIN -->
+<div class="login-wrap" id="login-screen" hidden>
+  <form class="login-card" onsubmit="entrar(event)">
+    <div class="login-title" data-nome-sistema>Controle de Emendas</div>
+    <div class="login-sub">Acesso restrito ao gabinete.</div>
+    <div class="form-group"><label for="l-usuario">Usuário</label><input type="text" id="l-usuario" autocomplete="username" autocapitalize="none" required></div>
+    <div class="form-group"><label for="l-senha">Senha</label><input type="password" id="l-senha" autocomplete="current-password" required></div>
+    <button type="submit" class="btn btn-primary" id="l-btn">Entrar</button>
+    <div class="login-erro" id="l-erro"></div>
+  </form>
+</div>
+
+<!-- ============================================================ APLICAÇÃO -->
+<div id="app" hidden>
 <header class="header">
   <div class="header-inner">
-    <div class="brand">
-      <div class="brand-title">Radar de Emendas</div>
-    </div>
+    <div class="brand-title" data-nome-sistema>Controle de Emendas</div>
+    <nav class="nav" id="nav">
+      <button data-view="emendas" class="active">Emendas</button>
+      <button data-view="painel">Painel</button>
+      <button data-view="atividade">Atividade</button>
+      <button data-view="lixeira">Lixeira</button>
+    </nav>
     <div class="header-actions">
-      <button class="btn btn-ghost btn-sm" onclick="carregarTudo()" title="Recarregar">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
-        Atualizar
-      </button>
-      <button class="btn btn-ghost btn-sm" onclick="abrirModalImportar()">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-        Importar
-      </button>
-      <button class="btn btn-primary btn-sm" onclick="abrirModal()">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Nova emenda
-      </button>
+      <button class="btn btn-ghost btn-sm" onclick="abrirModalImportar()">Importar</button>
+      <button class="btn btn-primary btn-sm" onclick="abrirModal()">Nova emenda</button>
+      <div class="user-menu">
+        <button class="user-btn" id="user-btn" onclick="toggleMenu(event)">Usuário</button>
+        <div class="dropdown" id="user-dropdown" hidden>
+          <div class="who" id="user-who"></div>
+          <button onclick="abrirSenha()">Alterar senha</button>
+          <span id="menu-admin" hidden>
+            <button onclick="abrirUsuarios()">Usuários</button>
+            <button onclick="abrirRegioes()">Importar lista de regiões</button>
+          </span>
+          <div class="sep"></div>
+          <button onclick="sair()">Sair</button>
+        </div>
+      </div>
     </div>
   </div>
 </header>
 
 <main class="container">
+
+<!-- ================= EMENDAS ================= -->
+<section id="view-emendas">
   <section class="kpis">
     <div class="kpi"><div class="kpi-label">Total de emendas</div><div class="kpi-value" id="kpi-total">—</div></div>
-    <div class="kpi"><div class="kpi-label">Valor empenhado</div><div class="kpi-value small" id="kpi-empenhado">—</div></div>
+    <div class="kpi"><div class="kpi-label">Valor total das emendas</div><div class="kpi-value small" id="kpi-valor">—</div></div>
     <div class="kpi"><div class="kpi-label">Valor pago</div><div class="kpi-value small" id="kpi-pago">—</div></div>
   </section>
 
   <section class="toolbar">
-    <div class="search-wrap">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      <input type="text" id="busca" placeholder="Buscar por nº, município, objeto, entidade ou líder..." oninput="debounceBusca()">
+    <div class="toolbar-row">
+      <div class="search-wrap">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="busca" placeholder="Buscar por nº, município, objeto, entidade, líder, CNPJ..." oninput="debounceBusca()">
+      </div>
+      <select class="filter-select" id="filtro-situacao" onchange="carregarEmendas()"><option value="">Todas as situações</option></select>
+      <select class="filter-select" id="filtro-ano" onchange="carregarEmendas()"><option value="">Todos os anos</option></select>
+      <select class="filter-select" id="filtro-municipio" onchange="carregarEmendas()"><option value="">Todos os municípios</option></select>
     </div>
-    <select class="filter-select" id="filtro-situacao" onchange="carregarEmendas()"><option value="">Todas as situações</option></select>
-    <select class="filter-select" id="filtro-municipio" onchange="carregarEmendas()"><option value="">Todos os municípios</option></select>
-    <select class="filter-select" id="filtro-ano" onchange="carregarEmendas()"><option value="">Todos os anos</option></select>
+    <div class="toolbar-row">
+      <select class="filter-select" id="filtro-secretaria" onchange="carregarEmendas()"><option value="">Todas as secretarias</option></select>
+      <select class="filter-select" id="filtro-lider" onchange="carregarEmendas()"><option value="">Todos os líderes</option></select>
+      <select class="filter-select" id="filtro-regiao" onchange="carregarEmendas()"><option value="">Todas as regiões</option></select>
+      <span style="display:inline-flex;align-items:center;gap:6px;">
+        <span class="hint">Sem movimento há</span>
+        <input type="number" id="filtro-parada" min="1" placeholder="dias" list="dias-opcoes" oninput="debounceBusca(); marcarChips()">
+        <span class="chips" id="chips-dias">
+          <button type="button" class="chip" data-d="7">7</button><button type="button" class="chip" data-d="15">15</button><button type="button" class="chip" data-d="30">30</button><button type="button" class="chip" data-d="60">60</button><button type="button" class="chip" data-d="90">90</button>
+        </span>
+      </span>
+      <label class="check"><input type="checkbox" id="filtro-incompletos" onchange="carregarEmendas()"> Dados incompletos</label>
+      <button class="btn btn-ghost btn-sm" onclick="limparFiltros()" style="margin-left:auto;">Limpar filtros</button>
+    </div>
   </section>
 
   <section class="table-card">
-    <div class="table-header">
-      <span><strong id="contador">0</strong> <span id="contador-label">emendas</span></span>
-    </div>
+    <div class="table-header"><span><strong id="contador">0</strong> <span id="contador-label">emendas</span></span></div>
     <div id="tabela-wrap">
       <table>
         <thead>
@@ -195,82 +334,127 @@ tbody tr:hover .row-actions { opacity: 1; }
             <th class="sortable" data-sort="municipio">Município / Região</th>
             <th class="sortable" data-sort="entidade">Entidade / CNPJ</th>
             <th class="sortable" data-sort="objeto">Objeto</th>
-            <th class="sortable right" data-sort="valor_empenhado">Valores</th>
+            <th class="sortable right" data-sort="valor_empenhado">Valor da emenda</th>
             <th class="sortable" data-sort="situacao">Situação</th>
+            <th class="sortable right" data-sort="dias_parada">Sem movimento</th>
             <th class="right">Ações</th>
           </tr>
         </thead>
         <tbody id="tbody"></tbody>
       </table>
     </div>
-    <div class="empty" id="empty" style="display: none;">
-      <div class="empty-icon">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+    <div class="empty" id="empty" hidden><div class="empty-title">Nenhuma emenda encontrada</div><div>Ajuste os filtros ou cadastre uma nova emenda.</div></div>
+  </section>
+</section>
+
+<!-- ================= PAINEL ================= -->
+<section id="view-painel" hidden>
+  <div class="page-title">
+    <span>Painel <small id="painel-sub"></small></span>
+    <select class="filter-select" id="painel-ano" onchange="carregarPainel()"><option value="">Todos os anos</option></select>
+  </div>
+  <section class="kpis six" id="painel-kpis"></section>
+  <div class="grid-cards" id="painel-cards"></div>
+</section>
+
+<!-- ================= ATIVIDADE ================= -->
+<section id="view-atividade" hidden>
+  <div class="page-title"><span>Atividade <small>histórico de alterações nas emendas</small></span></div>
+  <section class="toolbar">
+    <div class="toolbar-row">
+      <div class="search-wrap">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="log-busca" placeholder="Buscar por nº da emenda, município ou descrição..." oninput="debounceLogs()">
       </div>
-      <div class="empty-title">Nenhuma emenda cadastrada</div>
+      <select class="filter-select" id="log-usuario" onchange="carregarLogs(true)"><option value="">Todos os usuários</option></select>
+      <select class="filter-select" id="log-acao" onchange="carregarLogs(true)">
+        <option value="">Todas as ações</option><option value="criou">Criação</option><option value="editou">Edição</option>
+        <option value="importou">Importação</option><option value="excluiu">Exclusão</option><option value="restaurou">Restauração</option>
+        <option value="regiões">Regiões</option><option value="usuário">Usuários</option>
+      </select>
     </div>
   </section>
-</main>
+  <div class="log-list" id="log-list"></div>
+  <div style="text-align:center;margin-top:12px;"><button class="btn btn-secondary" id="log-mais" onclick="carregarLogs(false)" hidden>Carregar mais</button></div>
+</section>
 
-<!-- ============================================================ -->
-<!-- MODAL: FICHA (visualização) -->
-<!-- ============================================================ -->
+<!-- ================= LIXEIRA ================= -->
+<section id="view-lixeira" hidden>
+  <div class="page-title"><span>Lixeira <small>emendas excluídas podem ser restauradas</small></span></div>
+  <section class="table-card">
+    <table style="min-width: 900px;">
+      <thead><tr><th>Excluída em</th><th>Por</th><th>Emenda</th><th>Município</th><th>Entidade</th><th class="right">Valor</th><th class="right">Ações</th></tr></thead>
+      <tbody id="tbody-lixeira"></tbody>
+    </table>
+    <div class="empty" id="empty-lixeira" hidden><div class="empty-title">A lixeira está vazia</div></div>
+  </section>
+</section>
+
+</main>
+</div>
+
+<!-- ============================================================ MODAL: FICHA -->
 <div class="modal-overlay" id="modal-ficha">
-  <div class="modal" style="max-width: 760px;">
+  <div class="modal" style="max-width: 780px;">
     <div class="modal-header">
       <div>
         <div class="modal-title" id="ficha-titulo">Emenda</div>
-        <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;" id="ficha-sub"></div>
+        <div style="font-size: 12px; color: var(--muted); margin-top: 2px;" id="ficha-sub"></div>
       </div>
-      <button class="btn-icon" onclick="fecharFicha()" aria-label="Fechar">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
+      <button class="btn-icon" onclick="fecharFicha()" aria-label="Fechar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div class="modal-body" id="ficha-body"></div>
     <div class="modal-footer">
+      <button class="btn btn-danger" onclick="excluirDaFicha()" style="margin-right:auto;">Excluir</button>
       <button class="btn btn-secondary" onclick="fecharFicha()">Fechar</button>
       <button class="btn btn-primary" onclick="editarDaFicha()">Editar</button>
     </div>
   </div>
 </div>
 
-<!-- ============================================================ -->
-<!-- MODAL: FORMULÁRIO (criar/editar) -->
-<!-- ============================================================ -->
+<!-- ============================================================ MODAL: FORMULÁRIO -->
 <div class="modal-overlay" id="modal-overlay">
   <div class="modal">
     <div class="modal-header">
       <div class="modal-title" id="modal-title">Nova emenda</div>
-      <button class="btn-icon" onclick="fecharModal()" aria-label="Fechar">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
+      <button class="btn-icon" onclick="fecharModal()" aria-label="Fechar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <form id="form-emenda" onsubmit="salvarEmenda(event)">
       <div class="modal-body">
-        <input type="hidden" id="f-id">
-        <input type="hidden" id="f-versao">
+        <input type="hidden" id="f-id"><input type="hidden" id="f-versao">
 
         <div class="form-section">
-          <div class="form-section-title">Identificação e Localidade</div>
+          <div class="form-section-title">Identificação e localidade</div>
           <div class="form-grid">
-            <div class="form-group"><label>Nº da Emenda <span class="req">*</span></label><input type="text" id="f-numero" required></div>
-            <div class="form-group"><label>Ano <span class="req">*</span></label><input type="number" id="f-ano" required value="2026"></div>
-            <div class="form-group"><label>Secretaria (Siglas)</label><input type="text" id="f-secretaria" placeholder="Ex: SES, SEDUC, SOP"></div>
-
+            <div class="form-group"><label>Nº da emenda <span class="req">*</span></label><input type="text" id="f-numero" required></div>
+            <div class="form-group"><label>Ano <span class="req">*</span></label><input type="number" id="f-ano" required></div>
+            <div class="form-group"><label>Secretaria (sigla)</label><input type="text" id="f-secretaria" placeholder="Ex.: SES, SEDUC, SOP"></div>
             <div class="form-group"><label>Município <span class="req">*</span></label><input type="text" id="f-municipio" required list="lista-municipios"></div>
             <div class="form-group"><label>Região</label><input type="text" id="f-regiao" list="lista-regioes"></div>
             <div class="form-group"><label>Líder</label><input type="text" id="f-lider"></div>
-
             <div class="form-group span-2"><label>Ofício</label><input type="text" id="f-oficio"></div>
+            <div class="form-group"><label>Data de entrada</label><input type="date" id="f-data-entrada"></div>
             <div class="form-group full"><label>Referência</label><textarea id="f-referencia" rows="2"></textarea></div>
           </div>
         </div>
 
         <div class="form-section">
-          <div class="form-section-title">Entidade Beneficiária</div>
+          <div class="form-section-title">Entidade beneficiária</div>
           <div class="form-grid">
-            <div class="form-group span-2"><label>Nome da Entidade</label><input type="text" id="f-entidade"></div>
+            <div class="form-group span-2"><label>Nome da entidade</label><input type="text" id="f-entidade"></div>
             <div class="form-group"><label>CNPJ</label><input type="text" id="f-cnpj"></div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <div class="form-section-title">Contatos</div>
+          <div class="form-grid">
+            <div class="form-group"><label>Responsável</label><input type="text" id="f-resp-nome" class="keep-case"></div>
+            <div class="form-group"><label>Telefone do responsável</label><input type="text" id="f-resp-contato"></div>
+            <div class="form-group"><label>E-mail do responsável</label><input type="email" id="f-resp-email"></div>
+            <div class="form-group"><label>Ponto focal</label><input type="text" id="f-pf-nome" class="keep-case"></div>
+            <div class="form-group"><label>Telefone do ponto focal</label><input type="text" id="f-pf-contato"></div>
+            <div class="form-group"><label>E-mail do ponto focal</label><input type="email" id="f-pf-email"></div>
           </div>
         </div>
 
@@ -278,17 +462,14 @@ tbody tr:hover .row-actions { opacity: 1; }
           <div class="form-section-title">Detalhes</div>
           <div class="form-grid">
             <div class="form-group full"><label>Objeto</label><input type="text" id="f-objeto"></div>
-            <div class="form-group full">
-              <label>Justificativa</label>
-              <textarea id="f-justificativa" rows="5" class="keep-case" style="min-height: 110px;"></textarea>
-            </div>
+            <div class="form-group full"><label>Justificativa</label><textarea id="f-justificativa" rows="5" class="keep-case" style="min-height:110px;"></textarea></div>
             <div class="form-group"><label>Situação</label>
-              <select id="f-situacao">
-                <option>Aguardando</option><option>Pago</option><option>Cancelada</option>
-              </select>
+              <select id="f-situacao"><option>Aguardando</option><option>Pago</option><option>Cancelada</option></select>
             </div>
-            <div class="form-group"><label>Valor Empenhado (R$)</label><input type="number" step="0.01" id="f-empenhado"></div>
-            <div class="form-group"><label>Valor Pago (R$)</label><input type="number" step="0.01" id="f-pago"></div>
+            <div class="form-group"><label>Valor da emenda (R$)</label><input type="number" step="0.01" id="f-valor"></div>
+            <div class="form-group"><label>Valor pago (R$)</label><input type="number" step="0.01" id="f-pago"></div>
+            <div class="form-group"><label>Data do pagamento</label><input type="date" id="f-pago-em"></div>
+            <div class="form-group span-2"><span class="hint" style="margin-top:22px;">A data do pagamento alimenta o indicador de tempo até o pagamento no painel.</span></div>
             <div class="form-group full"><label>Observações</label><textarea id="f-observacoes" class="keep-case"></textarea></div>
           </div>
         </div>
@@ -301,626 +482,805 @@ tbody tr:hover .row-actions { opacity: 1; }
   </div>
 </div>
 
-<!-- ============================================================ -->
-<!-- MODAL: IMPORTAR -->
-<!-- ============================================================ -->
+<!-- ============================================================ MODAL: IMPORTAR -->
 <div class="modal-overlay" id="modal-importar">
-  <div class="modal" style="max-width: 620px;">
+  <div class="modal" style="max-width: 720px;">
     <div class="modal-header">
-      <div class="modal-title">Importar planilha de emendas</div>
-      <button class="btn-icon" onclick="fecharModalImportar()" aria-label="Fechar">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
+      <div class="modal-title">Importar planilha</div>
+      <button class="btn-icon" onclick="fecharModalImportar()" aria-label="Fechar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div class="modal-body">
       <div class="form-grid">
         <div class="form-group">
-          <label>Aba do Excel</label>
-          <select id="imp-aba"><option value="2026">2026</option></select>
+          <label>O que importar</label>
+          <select id="imp-aba" onchange="resetarPreview()">
+            <option value="todas">Todas as abas (2026, 2025, 2024 e contatos)</option>
+            <option value="2026">Somente 2026</option><option value="2025">Somente 2025</option><option value="2024">Somente 2024</option>
+            <option value="contatos">Somente contatos (aba ENTIDADES)</option>
+          </select>
         </div>
         <div class="form-group span-2">
           <label>Arquivo (.xlsx)</label>
-          <input type="file" id="imp-arquivo" accept=".xlsx,.xls" style="text-transform: none; padding: 6px;">
+          <input type="file" id="imp-arquivo" accept=".xlsx,.xls" onchange="resetarPreview()">
         </div>
       </div>
-      <div id="imp-preview" style="margin-top: 14px; font-size: 13px; color: var(--text-muted);"></div>
-      <div style="margin-top: 10px; font-size: 12px; color: var(--text-subtle);">
-        Emendas com mesmo <strong>Nº</strong> e <strong>ano</strong> serão atualizadas (upsert). Valores já pagos não são zerados.
+      <div id="imp-preview" style="margin-top: 6px;"></div>
+      <div class="hint" style="margin-top: 12px;">
+        Emendas com o mesmo Nº e ano são atualizadas. Quando a planilha traz "não consta", o dado já preenchido no sistema é mantido. Valores já pagos não são zerados.
       </div>
     </div>
     <div class="modal-footer">
       <button type="button" class="btn btn-secondary" onclick="fecharModalImportar()">Cancelar</button>
-      <button type="button" class="btn btn-ghost" onclick="previewImportar()">Pré-visualizar</button>
-      <button type="button" class="btn btn-primary" onclick="executarImportar()" id="btn-importar">Importar</button>
+      <button type="button" class="btn btn-secondary" onclick="previewImportar()" id="btn-preview">Pré-visualizar</button>
+      <button type="button" class="btn btn-primary" onclick="executarImportar()" id="btn-importar" disabled>Importar</button>
     </div>
   </div>
 </div>
 
-<datalist id="lista-regioes">
-  <option>NOROESTE COLONIAL</option><option>ALBERTO PASQUALINI</option><option>ALTO JACUÍ</option>
-  <option>CELEIRO – ITIBERÊ OSÓRIO</option><option>VINHEDOS</option><option>ALTO URUGUAI – LEONEL BRIZOLA</option>
-  <option>GRANDE GUAPORÉ</option><option>TRABALHISTA DO PLANALTO</option><option>ZONA SUL</option>
-  <option>FRONTEIRA OESTE</option><option>FRONTEIRA NOROESTE - PAULO MADEIRA</option><option>FRONTEIRA SUDESTE</option>
-  <option>VALE DO JACUÍ</option><option>GRANDE CAXIAS</option><option>JOSÉ AMÉRICO FREIRE</option>
-  <option>VALE DO ALTO TAQUARI</option><option>ALTO DA SERRA DO BOTUCARAÍ</option><option>GRANDE SANTA MARIA</option>
-  <option>ALTO DA SERRA</option><option>MEDIO ALTO URUGUAI – JOÃO GOULART</option><option>GRANDE LAGOA</option>
-  <option>LITORAL NORTE</option><option>VALE DO PARANHANA</option><option>MILTON GARCIA DUTRA</option>
-  <option>COSTA DOCE</option><option>METROPOLITANO DELTA DO JACUÍ</option>
-  <option>VALE DO RIO DOS SINOS</option><option>SERRA</option><option>CENTRAL</option>
-  <option>PRODUÇÃO</option><option>MISSÕES</option><option>CAMPANHA</option><option>SUL</option>
-</datalist>
+<!-- ============================================================ MODAL: USUÁRIOS -->
+<div class="modal-overlay" id="modal-usuarios">
+  <div class="modal" style="max-width: 640px;">
+    <div class="modal-header"><div class="modal-title">Usuários</div>
+      <button class="btn-icon" onclick="fecharUsuarios()" aria-label="Fechar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+    <div class="modal-body">
+      <table style="min-width:0;"><thead><tr><th>Nome</th><th>Usuário</th><th>Perfil</th><th class="right">Ações</th></tr></thead><tbody id="tbody-usuarios"></tbody></table>
+      <div class="form-section-title" style="margin-top:22px;">Novo usuário</div>
+      <div class="form-grid">
+        <div class="form-group"><label>Nome</label><input type="text" id="u-nome" class="keep-case"></div>
+        <div class="form-group"><label>Usuário (login)</label><input type="text" id="u-usuario" autocapitalize="none"></div>
+        <div class="form-group"><label>Senha (mín. 6)</label><input type="password" id="u-senha" autocomplete="new-password"></div>
+        <div class="form-group full"><label class="check"><input type="checkbox" id="u-admin"> Administrador (gerencia usuários, regiões e exclusão definitiva)</label></div>
+      </div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-secondary" onclick="fecharUsuarios()">Fechar</button><button class="btn btn-primary" onclick="criarUsuario()">Adicionar usuário</button></div>
+  </div>
+</div>
 
-<datalist id="lista-municipios">
-  <option>IJUÍ</option><option>CRUZ ALTA</option><option>SANTO AUGUSTO</option><option>IBIRUBÁ</option>
-  <option>SELBACH</option><option>TAPERA</option><option>TRÊS PASSOS</option><option>FREDERICO WESTPHALEN</option>
-  <option>HORIZONTINA</option><option>PALMEIRA DAS MISSÕES</option><option>SARANDI</option>
-  <option>BENTO GONÇALVES</option><option>GARIBALDI</option><option>CARLOS BARBOSA</option>
-  <option>ERECHIM</option><option>GETÚLIO VARGAS</option><option>ARATIBA</option>
-  <option>GUAPORÉ</option><option>ENCONSTADO</option><option>MUÇUM</option>
-  <option>PASSO FUNDO</option><option>CARAZINHO</option><option>TAPEJARA</option><option>CAMPO NOVO</option>
-  <option>PELOTAS</option><option>RIO GRANDE</option><option>CAMAQUÃ</option><option>CANGUÇU</option>
-  <option>URUGUAIANA</option><option>ALEGRETE</option><option>SÃO BORJA</option><option>ITAQUI</option>
-  <option>SANTA ROSA</option><option>SANTO CRISTO</option><option>GIRUÁ</option>
-  <option>BAGÉ</option><option>DOM PEDRITO</option><option>HERVAL</option>
-  <option>CACHOEIRA DO SUL</option><option>RIO PARDO</option><option>SOBRADINHO</option>
-  <option>CAXIAS DO SUL</option><option>FLORES DA CUNHA</option><option>SÃO MARCOS</option>
-  <option>SÃO JERÔNIMO</option><option>CHARQUEADAS</option><option>ELDORADO DO SUL</option>
-  <option>LAJEADO</option><option>ARROIO DO MEIO</option><option>ROCA SALES</option>
-  <option>SOLEDADE</option><option>ESPUMOSO</option><option>FONTOURA XAVIER</option>
-  <option>SANTA MARIA</option><option>JÚLIO DE CASTILHOS</option><option>SÃO PEDRO DO SUL</option>
-  <option>VACARIA</option><option>BOM JESUS</option><option>MONTE ALEGRE DOS CAMPOS</option>
-  <option>VICENTE DUTRA</option><option>SÃO PEDRO DAS MISSÕES</option>
-  <option>OSÓRIO</option><option>TRAMANDAÍ</option><option>IMBÉ</option><option>XANGRI-LÁ</option>
-  <option>TORRES</option><option>ARROIO DO SAL</option><option>DOM PEDRO DE ALCÂNTARA</option>
-  <option>TAQUARA</option><option>IGREJINHA</option><option>PAROBÉ</option><option>ROLANTE</option>
-  <option>RONDA ALTA</option><option>LIBERATO SALZANO</option>
-  <option>PORTO ALEGRE</option><option>GRAVATAÍ</option><option>VIAMÃO</option><option>ALVORADA</option>
-  <option>NOVO HAMBURGO</option><option>SÃO LEOPOLDO</option><option>ESTEIO</option>
-  <option>GRAMADO</option><option>CANELA</option><option>NOVA PETRÓPOLIS</option>
-</datalist>
+<!-- ============================================================ MODAL: SENHA -->
+<div class="modal-overlay" id="modal-senha">
+  <div class="modal" style="max-width: 420px;">
+    <div class="modal-header"><div class="modal-title">Alterar senha</div>
+      <button class="btn-icon" onclick="fecharSenha()" aria-label="Fechar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+    <div class="modal-body">
+      <div class="form-group" style="margin-bottom:12px;"><label>Senha atual</label><input type="password" id="s-atual" autocomplete="current-password"></div>
+      <div class="form-group" style="margin-bottom:12px;"><label>Nova senha (mín. 6 caracteres)</label><input type="password" id="s-nova" autocomplete="new-password"></div>
+      <div class="form-group"><label>Repita a nova senha</label><input type="password" id="s-nova2" autocomplete="new-password"></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-secondary" onclick="fecharSenha()">Cancelar</button><button class="btn btn-primary" onclick="salvarSenha()">Salvar</button></div>
+  </div>
+</div>
 
-<div class="toast" id="toast"><span class="toast-icon">✓</span><span id="toast-msg"></span></div>
+<!-- ============================================================ MODAL: REGIÕES -->
+<div class="modal-overlay" id="modal-regioes">
+  <div class="modal" style="max-width: 560px;">
+    <div class="modal-header"><div class="modal-title">Lista de regiões por município</div>
+      <button class="btn-icon" onclick="fecharRegioes()" aria-label="Fechar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+    <div class="modal-body">
+      <p style="margin-bottom:12px;">Envie uma planilha (.xlsx ou .csv) com duas colunas: <strong>Município</strong> e <strong>Região</strong>. Os municípios novos são acrescentados, os já existentes são atualizados, e as emendas que estavam com região "não consta na planilha" são preenchidas automaticamente.</p>
+      <div class="form-group"><label>Arquivo</label><input type="file" id="reg-arquivo" accept=".xlsx,.xls,.csv"></div>
+      <div class="hint" style="margin-top:10px;" id="reg-info"></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-secondary" onclick="fecharRegioes()">Fechar</button><button class="btn btn-primary" onclick="enviarRegioes()">Importar lista</button></div>
+  </div>
+</div>
+
+<datalist id="lista-regioes"></datalist>
+<datalist id="lista-municipios"></datalist>
+<datalist id="dias-opcoes"><option value="7"><option value="15"><option value="30"><option value="60"><option value="90"></datalist>
+<div class="toast" id="toast"><span id="toast-msg"></span></div>
 
 <script>
 // ============================================================
-// MAPA MUNICÍPIO -> REGIÃO (COREDES RS)
+// CONFIGURAÇÃO
 // ============================================================
-const mapaRegioes = {
-  "IJUÍ": "NOROESTE COLONIAL", "SANTO AUGUSTO": "NOROESTE COLONIAL",
-  "CÉSAR AUGUSTO": "NOROESTE COLONIAL", "AJURICABA": "NOROESTE COLONIAL",
-  "CRUZ ALTA": "ALTO JACUÍ", "IBIRUBÁ": "ALTO JACUÍ", "SELBACH": "ALTO JACUÍ",
-  "TAPERA": "ALTO JACUÍ", "SALDANHA MARINHO": "ALTO JACUÍ",
-  "SANTA BÁRBARA DO SUL": "ALTO JACUÍ", "QUINZE DE NOVEMBRO": "ALTO JACUÍ",
-  "TRÊS PASSOS": "CELEIRO – ITIBERÊ OSÓRIO", "FREDERICO WESTPHALEN": "CELEIRO – ITIBERÊ OSÓRIO",
-  "HORIZONTINA": "CELEIRO – ITIBERÊ OSÓRIO", "PALMEIRA DAS MISSÕES": "CELEIRO – ITIBERÊ OSÓRIO",
-  "SARANDI": "CELEIRO – ITIBERÊ OSÓRIO", "TUCUNDUVA": "CELEIRO – ITIBERÊ OSÓRIO",
-  "SÃO MARTINHO": "CELEIRO – ITIBERÊ OSÓRIO", "VISTA GAÚCHA": "CELEIRO – ITIBERÊ OSÓRIO",
-  "BENTO GONÇALVES": "VINHEDOS", "GARIBALDI": "VINHEDOS",
-  "CARLOS BARBOSA": "VINHEDOS", "MONTE BELO DO SUL": "VINHEDOS",
-  "PINTO BANDEIRA": "VINHEDOS", "SANTA TEREZA": "VINHEDOS",
-  "VALE REAL": "VINHEDOS", "NOVA ROMA DO SUL": "VINHEDOS",
-  "ERECHIM": "ALTO URUGUAI – LEONEL BRIZOLA", "GETÚLIO VARGAS": "ALTO URUGUAI – LEONEL BRIZOLA",
-  "ARATIBA": "ALTO URUGUAI – LEONEL BRIZOLA", "JACUTINGA": "ALTO URUGUAI – LEONEL BRIZOLA",
-  "SEVERIANO DE ALMEIDA": "ALTO URUGUAI – LEONEL BRIZOLA",
-  "GUAPORÉ": "GRANDE GUAPORÉ", "ENCONSTADO": "GRANDE GUAPORÉ",
-  "MUÇUM": "GRANDE GUAPORÉ", "DOIS LAJEADOS": "GRANDE GUAPORÉ",
-  "COTIPOARA": "GRANDE GUAPORÉ", "SÉRIO": "GRANDE GUAPORÉ",
-  "PUTINGA": "GRANDE GUAPORÉ", "NOVA BASSANO": "GRANDE GUAPORÉ",
-  "PASSO FUNDO": "TRABALHISTA DO PLANALTO", "CARAZINHO": "TRABALHISTA DO PLANALTO",
-  "TAPEJARA": "TRABALHISTA DO PLANALTO", "CAMPO NOVO": "TRABALHISTA DO PLANALTO",
-  "CIRÍACO": "TRABALHISTA DO PLANALTO", "COXILHA": "TRABALHISTA DO PLANALTO",
-  "SANTA CECÍLIA DO SUL": "TRABALHISTA DO PLANALTO", "NÃO-ME-TOQUE": "TRABALHISTA DO PLANALTO",
-  "PELOTAS": "ZONA SUL", "RIO GRANDE": "ZONA SUL", "CAMAQUÃ": "ZONA SUL",
-  "CANGUÇU": "ZONA SUL", "SÃO JOSÉ DO NORTE": "ZONA SUL", "CRISTAL": "ZONA SUL",
-  "TAPES": "ZONA SUL", "ARAMBARÉ": "ZONA SUL", "DOM FELICIANO": "ZONA SUL",
-  "SENTINELA DO SUL": "ZONA SUL", "CHUVISCA": "ZONA SUL",
-  "URUGUAIANA": "FRONTEIRA OESTE", "ALEGRETE": "FRONTEIRA OESTE",
-  "SÃO BORJA": "FRONTEIRA OESTE", "ITAQUI": "FRONTEIRA OESTE",
-  "BARRA DO QUARAÍ": "FRONTEIRA OESTE", "QUARAÍ": "FRONTEIRA OESTE",
-  "MANOEL VIANA": "FRONTEIRA OESTE", "MAÇAMBARÁ": "FRONTEIRA OESTE",
-  "SANTA ROSA": "FRONTEIRA NOROESTE - PAULO MADEIRA", "SANTO CRISTO": "FRONTEIRA NOROESTE - PAULO MADEIRA",
-  "GIRUÁ": "FRONTEIRA NOROESTE - PAULO MADEIRA", "TRÊS DE MAIO": "FRONTEIRA NOROESTE - PAULO MADEIRA",
-  "TUPARENDI": "FRONTEIRA NOROESTE - PAULO MADEIRA", "BOA VISTA DO BURICÁ": "FRONTEIRA NOROESTE - PAULO MADEIRA",
-  "NOVO MACHADO": "FRONTEIRA NOROESTE - PAULO MADEIRA",
-  "BAGÉ": "FRONTEIRA SUDESTE", "DOM PEDRITO": "FRONTEIRA SUDESTE",
-  "HERVAL": "FRONTEIRA SUDESTE", "PEDRAS ALTAS": "FRONTEIRA SUDESTE",
-  "PINHEIRO MACHADO": "FRONTEIRA SUDESTE", "ACEGUÁ": "FRONTEIRA SUDESTE",
-  "CANDIOTA": "FRONTEIRA SUDESTE", "HULHA NEGRA": "FRONTEIRA SUDESTE",
-  "CACHOEIRA DO SUL": "VALE DO JACUÍ", "RIO PARDO": "VALE DO JACUÍ",
-  "SOBRADINHO": "VALE DO JACUÍ", "CERRO BRANCO": "VALE DO JACUÍ",
-  "NOVO CABRAIS": "VALE DO JACUÍ", "PANTANO GRANDE": "VALE DO JACUÍ",
-  "AGUDO": "VALE DO JACUÍ", "PARAÍSO DO SUL": "VALE DO JACUÍ",
-  "CAXIAS DO SUL": "GRANDE CAXIAS", "FLORES DA CUNHA": "GRANDE CAXIAS",
-  "SÃO MARCOS": "GRANDE CAXIAS", "NOVA PÁDUA": "GRANDE CAXIAS", "FARROUPILHA": "GRANDE CAXIAS",
-  "SÃO JERÔNIMO": "JOSÉ AMÉRICO FREIRE", "CHARQUEADAS": "JOSÉ AMÉRICO FREIRE",
-  "ARROIO DOS RATOS": "JOSÉ AMÉRICO FREIRE", "ELDORADO DO SUL": "JOSÉ AMÉRICO FREIRE",
-  "LAJEADO": "VALE DO ALTO TAQUARI", "ARROIO DO MEIO": "VALE DO ALTO TAQUARI",
-  "ROCA SALES": "VALE DO ALTO TAQUARI", "TRAVESSEIRO": "VALE DO ALTO TAQUARI",
-  "CAPITÃO": "VALE DO ALTO TAQUARI", "POUSO NOVO": "VALE DO ALTO TAQUARI",
-  "PROGRESSO": "VALE DO ALTO TAQUARI", "FORQUETINHA": "VALE DO ALTO TAQUARI",
-  "SOLEDADE": "ALTO DA SERRA DO BOTUCARAÍ", "ESPUMOSO": "ALTO DA SERRA DO BOTUCARAÍ",
-  "FONTOURA XAVIER": "ALTO DA SERRA DO BOTUCARAÍ", "NOVA PALMA": "ALTO DA SERRA DO BOTUCARAÍ",
-  "TUNAS": "ALTO DA SERRA DO BOTUCARAÍ",
-  "SANTA MARIA": "GRANDE SANTA MARIA", "JÚLIO DE CASTILHOS": "GRANDE SANTA MARIA",
-  "SÃO PEDRO DO SUL": "GRANDE SANTA MARIA", "RESTINGA SÉCA": "GRANDE SANTA MARIA",
-  "TOROPI": "GRANDE SANTA MARIA", "SILVEIRA MARTINS": "GRANDE SANTA MARIA",
-  "VACARIA": "ALTO DA SERRA", "BOM JESUS": "ALTO DA SERRA",
-  "MONTE ALEGRE DOS CAMPOS": "ALTO DA SERRA", "CAMPESTRE DA SERRA": "ALTO DA SERRA",
-  "SÃO JOSÉ DOS AUSENTES": "ALTO DA SERRA", "JAQUIRANA": "ALTO DA SERRA",
-  "VICENTE DUTRA": "MEDIO ALTO URUGUAI – JOÃO GOULART",
-  "SÃO PEDRO DAS MISSÕES": "MEDIO ALTO URUGUAI – JOÃO GOULART",
-  "TRINDADE DO SUL": "MEDIO ALTO URUGUAI – JOÃO GOULART",
-  "OSÓRIO": "GRANDE LAGOA", "TRAMANDAÍ": "GRANDE LAGOA", "IMBÉ": "GRANDE LAGOA",
-  "XANGRI-LÁ": "GRANDE LAGOA", "MOSTARDAS": "GRANDE LAGOA", "PALMARES DO SUL": "GRANDE LAGOA",
-  "CIDREIRA": "GRANDE LAGOA", "CAPIVARI DO SUL": "GRANDE LAGOA",
-  "TORRES": "LITORAL NORTE", "ARROIO DO SAL": "LITORAL NORTE",
-  "DOM PEDRO DE ALCÂNTARA": "LITORAL NORTE", "TRÊS CACHOEIRAS": "LITORAL NORTE",
-  "MAQUINÉ": "LITORAL NORTE", "MORRINHOS DO SUL": "LITORAL NORTE",
-  "TAQUARA": "VALE DO PARANHANA", "IGREJINHA": "VALE DO PARANHANA",
-  "PAROBÉ": "VALE DO PARANHANA", "ROLANTE": "VALE DO PARANHANA",
-  "TRÊS COROAS": "VALE DO PARANHANA", "SANTA MARIA DO HERVAL": "VALE DO PARANHANA",
-  "RONDA ALTA": "MILTON GARCIA DUTRA", "LIBERATO SALZANO": "MILTON GARCIA DUTRA",
-  "PORTO ALEGRE": "METROPOLITANO DELTA DO JACUÍ", "GRAVATAÍ": "METROPOLITANO DELTA DO JACUÍ",
-  "VIAMÃO": "METROPOLITANO DELTA DO JACUÍ", "ALVORADA": "METROPOLITANO DELTA DO JACUÍ",
-  "NOVO HAMBURGO": "VALE DO RIO DOS SINOS", "SÃO LEOPOLDO": "VALE DO RIO DOS SINOS",
-  "ESTEIO": "VALE DO RIO DOS SINOS",
-  "GRAMADO": "SERRA", "CANELA": "SERRA", "NOVA PETRÓPOLIS": "SERRA"
-};
-
-// ============================================================
-// AUTO-PREENCHIMENTO DE REGIÃO
-// ============================================================
-let regiaoEditadaManualmente = false;
-
-function configurarAutoRegiao() {
-  const inputMunicipio = document.getElementById('f-municipio');
-  const inputRegiao = document.getElementById('f-regiao');
-  if (!inputMunicipio || !inputRegiao) return;
-  inputRegiao.addEventListener('input', function() { regiaoEditadaManualmente = true; });
-  inputMunicipio.addEventListener('input', function() {
-    if (regiaoEditadaManualmente) return;
-    const valor = this.value.toUpperCase().trim();
-    inputRegiao.value = mapaRegioes[valor] || '';
-  });
-}
+const NOME_SISTEMA = 'Controle de Emendas';
+const NSC = 'não consta na planilha';
+const CHAVE_AUTH = 'emendas_auth';
 
 // ============================================================
 // ESTADO
 // ============================================================
+let auth = null;
 let emendasCache = [];
-let debounceTimer = null;
-let sortColumn = null;
-let sortDirection = 'desc';
+let debounceTimer = null, logTimer = null;
+let sortColumn = null, sortDirection = 'desc';
 let fichaAtualId = null;
+let regiaoEditadaManualmente = false;
+let regioesMap = {};
+let previewOk = false;
+let logsOffset = 0;
+const painelModo = { lider: 'n', municipio: 'n', regiao: 'n', secretaria: 'n' };
 
 // ============================================================
 // UTILITÁRIOS
 // ============================================================
+const $ = id => document.getElementById(id);
 function fmtMoney(v) { return 'R$ ' + (Number(v) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
-function escapeHTML(s) { return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }
+function fmtMoneyCurto(v) {
+  v = Number(v) || 0;
+  if (v >= 1e6) return 'R$ ' + (v / 1e6).toLocaleString('pt-BR', { maximumFractionDigits: 2 }) + ' mi';
+  if (v >= 1e3) return 'R$ ' + (v / 1e3).toLocaleString('pt-BR', { maximumFractionDigits: 0 }) + ' mil';
+  return 'R$ ' + v.toLocaleString('pt-BR');
+}
+function escapeHTML(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }
+function fmtNumero(n) { return String(n || '').startsWith('S/N-') ? NSC : (n || '—'); }
+function fmtData(d) { if (!d) return '—'; const p = String(d).slice(0, 10).split('-'); return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : d; }
+function fmtDataHora(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return d.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+function chaveMun(s) { return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/\s+/g, ' ').trim(); }
 function badgeSituacao(s) {
-  const cls = (s || 'Aguardando').toLowerCase().replace(/\s+/g, '-').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const cls = (s || 'Aguardando').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '-');
   return '<span class="status status-' + cls + '">' + escapeHTML(s || 'Aguardando') + '</span>';
 }
-function debounceBusca() { clearTimeout(debounceTimer); debounceTimer = setTimeout(carregarEmendas, 300); }
+function diasHTML(d) {
+  if (d == null) return '<span class="faint">—</span>';
+  const cls = d >= 60 ? 'critico' : d >= 30 ? 'alerta' : '';
+  return '<span class="dias ' + cls + '">' + d + (d === 1 ? ' dia' : ' dias') + '</span>';
+}
+function icone(path) { return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + path + '</svg>'; }
+const ICO_EDIT = '<path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>';
+const ICO_DEL = '<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>';
+
+function toast(msg, tipo) {
+  const el = $('toast');
+  $('toast-msg').textContent = msg;
+  el.className = 'toast show toast-' + (tipo || 'success');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('show'), 3800);
+}
 
 // ============================================================
-// CARREGAMENTO
+// API + AUTENTICAÇÃO
 // ============================================================
-async function carregarEmendas() {
-  const q = document.getElementById('busca').value.trim();
-  const sit = document.getElementById('filtro-situacao').value;
-  const mun = document.getElementById('filtro-municipio').value;
-  const ano = document.getElementById('filtro-ano').value;
-  const params = new URLSearchParams();
-  if (q) params.append('q', q);
-  if (sit) params.append('situacao', sit);
-  if (mun) params.append('municipio', mun);
-  if (ano) params.append('ano', ano);
+async function api(path, opts) {
+  opts = opts || {};
+  const headers = Object.assign({}, opts.headers || {});
+  if (auth && auth.token) headers['Authorization'] = 'Bearer ' + auth.token;
+  const init = { method: opts.method || 'GET', headers };
+  if (opts.json !== undefined) { headers['Content-Type'] = 'application/json'; init.body = JSON.stringify(opts.json); }
+  else if (opts.body) init.body = opts.body;
+  const res = await fetch(path, init);
+  let data = null;
+  try { data = await res.json(); } catch (e) {}
+  if (res.status === 401 && path !== '/api/login') { sair(true); throw new Error('Sessão expirada. Entre novamente.'); }
+  if (!res.ok) {
+    const err = new Error((data && data.erro) || ('Erro ' + res.status));
+    err.status = res.status; err.data = data;
+    throw err;
+  }
+  return data;
+}
+
+function mostrarLogin() {
+  $('app').hidden = true; $('login-screen').hidden = false;
+  $('l-senha').value = ''; setTimeout(() => $('l-usuario').focus(), 50);
+}
+
+async function entrar(ev) {
+  ev.preventDefault();
+  const btn = $('l-btn'); btn.disabled = true; $('l-erro').textContent = '';
   try {
-    const res = await fetch('/api/emendas?' + params);
-    if (!res.ok) throw new Error('Erro ' + res.status);
-    emendasCache = await res.json();
-    renderTabela();
-    atualizarKPIs();
+    const d = await api('/api/login', { method: 'POST', json: { usuario: $('l-usuario').value, senha: $('l-senha').value } });
+    auth = d;
+    localStorage.setItem(CHAVE_AUTH, JSON.stringify(d));
+    iniciarApp();
+  } catch (err) { $('l-erro').textContent = err.message; }
+  finally { btn.disabled = false; }
+}
+
+function sair(expirou) {
+  localStorage.removeItem(CHAVE_AUTH); auth = null;
+  $('user-dropdown').hidden = true;
+  mostrarLogin();
+  if (expirou) $('l-erro').textContent = 'Sessão expirada. Entre novamente.';
+}
+
+function toggleMenu(ev) { ev.stopPropagation(); $('user-dropdown').hidden = !$('user-dropdown').hidden; }
+document.addEventListener('click', () => { const d = $('user-dropdown'); if (d) d.hidden = true; });
+
+async function iniciarApp() {
+  $('login-screen').hidden = true; $('app').hidden = false;
+  $('user-btn').textContent = auth.nome;
+  $('user-who').textContent = auth.nome + ' (' + auth.usuario + ')' + (auth.admin ? ' · administrador' : '');
+  $('menu-admin').hidden = !auth.admin;
+  await carregarRegioes();
+  carregarTudo();
+  mostrarView('emendas');
+}
+
+// ============================================================
+// NAVEGAÇÃO
+// ============================================================
+function mostrarView(v) {
+  ['emendas', 'painel', 'atividade', 'lixeira'].forEach(n => { $('view-' + n).hidden = (n !== v); });
+  document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('active', b.dataset.view === v));
+  if (v === 'painel') carregarPainel();
+  if (v === 'atividade') carregarLogs(true);
+  if (v === 'lixeira') carregarLixeira();
+}
+
+// ============================================================
+// REGIÕES (mapa vindo do servidor)
+// ============================================================
+async function carregarRegioes() {
+  try {
+    const lista = await api('/api/regioes');
+    regioesMap = {};
+    const regs = new Set();
+    lista.forEach(x => { regioesMap[chaveMun(x.m)] = x.r; regs.add(x.r); });
+    $('lista-municipios').innerHTML = lista.map(x => '<option>' + escapeHTML(x.m) + '</option>').join('');
+    $('lista-regioes').innerHTML = [...regs].sort().map(r => '<option>' + escapeHTML(r) + '</option>').join('');
+  } catch (err) { console.error(err); }
+}
+
+function configurarAutoRegiao() {
+  $('f-regiao').addEventListener('input', () => { regiaoEditadaManualmente = true; });
+  $('f-municipio').addEventListener('input', function () {
+    if (regiaoEditadaManualmente) return;
+    $('f-regiao').value = regioesMap[chaveMun(this.value)] || '';
+  });
+}
+
+// ============================================================
+// LISTAGEM
+// ============================================================
+function debounceBusca() { clearTimeout(debounceTimer); debounceTimer = setTimeout(carregarEmendas, 300); }
+
+function marcarChips() {
+  const v = $('filtro-parada').value;
+  document.querySelectorAll('#chips-dias .chip').forEach(c => c.classList.toggle('on', c.dataset.d === v));
+}
+
+function limparFiltros() {
+  ['busca', 'filtro-situacao', 'filtro-ano', 'filtro-municipio', 'filtro-secretaria', 'filtro-lider', 'filtro-regiao', 'filtro-parada']
+    .forEach(id => { $(id).value = ''; });
+  $('filtro-incompletos').checked = false; marcarChips(); carregarEmendas();
+}
+
+async function carregarEmendas() {
+  const p = new URLSearchParams();
+  const add = (k, id) => { const v = $(id).value.trim(); if (v) p.append(k, v); };
+  add('q', 'busca'); add('situacao', 'filtro-situacao'); add('ano', 'filtro-ano'); add('municipio', 'filtro-municipio');
+  add('secretaria', 'filtro-secretaria'); add('lider', 'filtro-lider'); add('regiao', 'filtro-regiao'); add('parada_dias', 'filtro-parada');
+  if ($('filtro-incompletos').checked) p.append('incompletos', '1');
+  try {
+    emendasCache = await api('/api/emendas?' + p);
+    renderTabela(); atualizarKPIs();
   } catch (err) { console.error(err); toast('Erro ao carregar emendas', 'error'); }
 }
 
-// ============================================================
-// ORDENAÇÃO
-// ============================================================
-function sortBy(column) {
-  if (sortColumn === column) {
-    sortDirection = sortDirection === 'desc' ? 'asc' : 'desc';
-  } else {
-    sortColumn = column;
-    sortDirection = 'desc';
-  }
-  atualizarIndicadoresSort();
-  renderTabela();
+async function carregarFiltros() {
+  try {
+    const f = await api('/api/filtros');
+    const preencher = (id, rotulo, itens) => {
+      const el = $(id), atual = el.value;
+      el.innerHTML = '<option value="">' + rotulo + '</option>' + itens.map(s => '<option>' + escapeHTML(s) + '</option>').join('');
+      if (itens.map(String).includes(atual)) el.value = atual;
+    };
+    preencher('filtro-situacao', 'Todas as situações', f.situacoes);
+    preencher('filtro-ano', 'Todos os anos', f.anos);
+    preencher('filtro-municipio', 'Todos os municípios', f.municipios);
+    preencher('filtro-secretaria', 'Todas as secretarias', f.secretarias);
+    preencher('filtro-lider', 'Todos os líderes', f.lideres);
+    preencher('filtro-regiao', 'Todas as regiões', f.regioes);
+    const pa = $('painel-ano'), cur = pa.value;
+    pa.innerHTML = '<option value="">Todos os anos</option>' + f.anos.map(a => '<option>' + a + '</option>').join('');
+    if (f.anos.map(String).includes(cur)) pa.value = cur;
+  } catch (err) { console.error(err); }
 }
 
-function atualizarIndicadoresSort() {
+function carregarTudo() { carregarEmendas(); carregarFiltros(); }
+
+// ---- ordenação
+function sortBy(col) {
+  if (sortColumn === col) sortDirection = sortDirection === 'desc' ? 'asc' : 'desc';
+  else { sortColumn = col; sortDirection = 'desc'; }
   document.querySelectorAll('thead th.sortable').forEach(th => {
     th.classList.remove('sorted-asc', 'sorted-desc');
-    if (th.dataset.sort === sortColumn) {
-      th.classList.add(sortDirection === 'desc' ? 'sorted-desc' : 'sorted-asc');
-    }
+    if (th.dataset.sort === sortColumn) th.classList.add(sortDirection === 'desc' ? 'sorted-desc' : 'sorted-asc');
   });
+  renderTabela();
 }
 
 function getListaOrdenada() {
   if (!sortColumn) return emendasCache;
   return [...emendasCache].sort((a, b) => {
-    const va = a[sortColumn];
-    const vb = b[sortColumn];
+    const va = a[sortColumn], vb = b[sortColumn];
     if (va == null && vb == null) return 0;
     if (va == null) return 1;
     if (vb == null) return -1;
-    if (typeof va === 'number' && typeof vb === 'number') {
-      return sortDirection === 'desc' ? vb - va : va - vb;
-    }
-    const sa = String(va).trim();
-    const sb = String(vb).trim();
-    if (/^\d+(\.\d+)?$/.test(sa) && /^\d+(\.\d+)?$/.test(sb)) {
-      const na = parseFloat(sa), nb = parseFloat(sb);
-      return sortDirection === 'desc' ? nb - na : na - nb;
-    }
-    const la = sa.toLowerCase(), lb = sb.toLowerCase();
-    return sortDirection === 'desc'
-      ? lb.localeCompare(la, 'pt-BR')
-      : la.localeCompare(lb, 'pt-BR');
+    if (typeof va === 'number' && typeof vb === 'number') return sortDirection === 'desc' ? vb - va : va - vb;
+    const sa = String(va).trim(), sb = String(vb).trim();
+    if (/^\d+(\.\d+)?$/.test(sa) && /^\d+(\.\d+)?$/.test(sb)) return sortDirection === 'desc' ? parseFloat(sb) - parseFloat(sa) : parseFloat(sa) - parseFloat(sb);
+    return sortDirection === 'desc' ? sb.toLowerCase().localeCompare(sa.toLowerCase(), 'pt-BR') : sa.toLowerCase().localeCompare(sb.toLowerCase(), 'pt-BR');
   });
 }
 
-// ============================================================
-// RENDERIZAÇÃO
-// ============================================================
 function renderTabela() {
-  const tbody = document.getElementById('tbody');
-  const empty = document.getElementById('empty');
-  const wrap = document.getElementById('tabela-wrap');
-  const cont = document.getElementById('contador');
-  const contLabel = document.getElementById('contador-label');
-  const lista = getListaOrdenada();
-  cont.textContent = lista.length;
-  contLabel.textContent = lista.length === 1 ? 'emenda' : 'emendas';
-  if (lista.length === 0) { wrap.style.display = 'none'; empty.style.display = 'block'; return; }
-  wrap.style.display = 'block'; empty.style.display = 'none'; tbody.innerHTML = '';
+  const tbody = $('tbody'), lista = getListaOrdenada();
+  $('contador').textContent = lista.length;
+  $('contador-label').textContent = lista.length === 1 ? 'emenda' : 'emendas';
+  $('tabela-wrap').hidden = lista.length === 0;
+  $('empty').hidden = lista.length !== 0;
+  tbody.innerHTML = '';
   lista.forEach(e => {
     const tr = document.createElement('tr');
     tr.addEventListener('click', () => abrirFicha(e.id));
     tr.innerHTML =
-      '<td><div class="cell-main">' + escapeHTML(e.numero_emenda) + '</div><div class="cell-sub">' + escapeHTML(e.ano) + '</div></td>' +
+      '<td><div class="cell-main">' + escapeHTML(fmtNumero(e.numero_emenda)) + '</div><div class="cell-sub">' + escapeHTML(e.ano) + '</div></td>' +
       '<td><div class="cell-main">' + escapeHTML(e.municipio) + '</div><div class="cell-sub">' + escapeHTML(e.regiao || '—') + '</div></td>' +
       '<td><div class="cell-main">' + escapeHTML(e.entidade || '—') + '</div><div class="cell-sub">' + escapeHTML(e.cnpj || '—') + '</div></td>' +
-      '<td class="cell-obj"><div class="cell-main">' + escapeHTML(e.objeto || '—') + '</div></td>' +
+      '<td class="cell-obj" title="' + escapeHTML(e.objeto || '') + '"><div class="cell-main">' + escapeHTML(e.objeto || '—') + '</div></td>' +
       '<td class="cell-value">' + fmtMoney(e.valor_empenhado) + '<small>Pago: ' + fmtMoney(e.valor_pago) + '</small></td>' +
       '<td>' + badgeSituacao(e.situacao) + '</td>' +
+      '<td class="right">' + diasHTML(e.dias_parada) + '</td>' +
       '<td class="cell-actions"><div class="row-actions">' +
-        '<button class="btn-icon" onclick="event.stopPropagation(); abrirModal(' + e.id + ')" title="Editar"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>' +
-        '<button class="btn-icon danger" onclick="event.stopPropagation(); excluirEmenda(' + e.id + ')" title="Excluir"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>' +
+        '<button class="btn-icon" onclick="event.stopPropagation(); abrirModal(' + e.id + ')" title="Editar">' + icone(ICO_EDIT) + '</button>' +
+        '<button class="btn-icon danger" onclick="event.stopPropagation(); excluirEmenda(' + e.id + ')" title="Excluir">' + icone(ICO_DEL) + '</button>' +
       '</div></td>';
     tbody.appendChild(tr);
   });
 }
 
 function atualizarKPIs() {
-  const total = emendasCache.length;
-  const empenhado = emendasCache.reduce((s, e) => s + (Number(e.valor_empenhado) || 0), 0);
-  const pago = emendasCache.reduce((s, e) => s + (Number(e.valor_pago) || 0), 0);
-  document.getElementById('kpi-total').textContent = total;
-  document.getElementById('kpi-empenhado').textContent = fmtMoney(empenhado);
-  document.getElementById('kpi-pago').textContent = fmtMoney(pago);
+  $('kpi-total').textContent = emendasCache.length;
+  $('kpi-valor').textContent = fmtMoney(emendasCache.reduce((s, e) => s + (Number(e.valor_empenhado) || 0), 0));
+  $('kpi-pago').textContent = fmtMoney(emendasCache.reduce((s, e) => s + (Number(e.valor_pago) || 0), 0));
 }
 
-async function carregarFiltros() {
-  try {
-    const res = await fetch('/api/filtros'); if (!res.ok) return;
-    const f = await res.json();
-    document.getElementById('filtro-situacao').innerHTML = '<option value="">Todas as situações</option>' + f.situacoes.map(s => '<option>' + escapeHTML(s) + '</option>').join('');
-    document.getElementById('filtro-municipio').innerHTML = '<option value="">Todos os municípios</option>' + f.municipios.map(m => '<option>' + escapeHTML(m) + '</option>').join('');
-    document.getElementById('filtro-ano').innerHTML = '<option value="">Todos os anos</option>' + f.anos.map(a => '<option>' + a + '</option>').join('');
-  } catch (err) { console.error(err); }
+// ============================================================
+// FICHA
+// ============================================================
+async function abrirFichaPorId(id) {
+  if (!emendasCache.find(x => x.id === id)) {
+    try { emendasCache.push(await api('/api/emendas/' + id)); } catch (err) { toast('Emenda não encontrada (pode estar na lixeira)', 'error'); return; }
+  }
+  abrirFicha(id);
 }
 
-function carregarTudo() { carregarEmendas(); carregarFiltros(); }
+function campoFicha(rotulo, valor, opts) {
+  opts = opts || {};
+  const vazio = valor == null || valor === '' || valor === NSC;
+  const txt = vazio ? '<span class="faint">' + (opts.vazio || '—') + '</span>' : escapeHTML(valor);
+  return '<div class="ficha-field' + (opts.full ? ' full' : '') + '"><label>' + rotulo + '</label><div' + (opts.pre ? ' class="pre"' : '') + '>' + txt + '</div></div>';
+}
 
-// ============================================================
-// FICHA (visualização)
-// ============================================================
-function abrirFicha(id) {
+async function abrirFicha(id) {
   const e = emendasCache.find(x => x.id === id);
   if (!e) return;
   fichaAtualId = id;
-
-  document.getElementById('ficha-titulo').textContent = 'Emenda nº ' + (e.numero_emenda || '—');
-  document.getElementById('ficha-sub').textContent = 'Ano ' + (e.ano || '—') + ' · ' + (e.municipio || '—');
-
-  const situacaoBrutaTxt = (e.situacao_bruta && e.situacao_bruta !== e.situacao)
-    ? '<span style="font-size: 12px; color: var(--text-muted);">Original na planilha: ' + escapeHTML(e.situacao_bruta) + '</span>'
-    : '';
-
-  document.getElementById('ficha-body').innerHTML = `
-    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 20px;">
-      ${badgeSituacao(e.situacao)}
-      ${situacaoBrutaTxt}
-    </div>
-
-    <div class="ficha-section">
-      <div class="ficha-section-title">Identificação</div>
-      <div class="ficha-grid">
-        <div class="ficha-field"><label>Nº da Emenda</label><div>${escapeHTML(e.numero_emenda || '—')}</div></div>
-        <div class="ficha-field"><label>Ano</label><div>${escapeHTML(e.ano || '—')}</div></div>
-        <div class="ficha-field"><label>Secretaria</label><div>${escapeHTML(e.secretaria || '—')}</div></div>
-      </div>
-    </div>
-
-    <div class="ficha-section">
-      <div class="ficha-section-title">Localidade</div>
-      <div class="ficha-grid">
-        <div class="ficha-field"><label>Município</label><div>${escapeHTML(e.municipio || '—')}</div></div>
-        <div class="ficha-field"><label>Região</label><div>${escapeHTML(e.regiao || '—')}</div></div>
-        <div class="ficha-field"><label>Líder</label><div>${escapeHTML(e.lider || '—')}</div></div>
-      </div>
-    </div>
-
-    <div class="ficha-section">
-      <div class="ficha-section-title">Entidade Beneficiária</div>
-      <div class="ficha-grid">
-        <div class="ficha-field"><label>Entidade</label><div>${escapeHTML(e.entidade || '—')}</div></div>
-        <div class="ficha-field"><label>CNPJ</label><div>${escapeHTML(e.cnpj || '—')}</div></div>
-        <div class="ficha-field"><label>Ofício</label><div>${escapeHTML(e.oficio || '—')}</div></div>
-      </div>
-    </div>
-
-    <div class="ficha-section">
-      <div class="ficha-section-title">Detalhes</div>
-      <div class="ficha-field full"><label>Objeto</label><div>${escapeHTML(e.objeto || '—')}</div></div>
-      <div class="ficha-field full"><label>Referência</label><div class="pre">${escapeHTML(e.referencia || '—')}</div></div>
-      <div class="ficha-field full"><label>Justificativa</label><div class="pre">${escapeHTML(e.justificativa || '—')}</div></div>
-      ${e.observacoes ? `<div class="ficha-field full"><label>Observações</label><div class="pre">${escapeHTML(e.observacoes)}</div></div>` : ''}
-    </div>
-
-    <div class="ficha-section">
-      <div class="ficha-section-title">Valores</div>
-      <div class="ficha-grid">
-        <div class="ficha-field"><label>Valor Empenhado</label><div style="font-weight: 600;">${fmtMoney(e.valor_empenhado)}</div></div>
-        <div class="ficha-field"><label>Valor Pago</label><div style="font-weight: 600;">${fmtMoney(e.valor_pago)}</div></div>
-      </div>
-    </div>
-  `;
-
-  document.getElementById('modal-ficha').classList.add('open');
+  $('ficha-titulo').textContent = 'Emenda nº ' + fmtNumero(e.numero_emenda);
+  $('ficha-sub').textContent = 'Ano ' + (e.ano || '—') + ' · ' + (e.municipio || '—');
+  const bruta = (e.situacao_bruta && e.situacao_bruta !== e.situacao)
+    ? '<span style="font-size:12px;color:var(--muted);">Na planilha: ' + escapeHTML(e.situacao_bruta) + '</span>' : '';
+  const nc = 'não consta na planilha';
+  $('ficha-body').innerHTML =
+    '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px;">' + badgeSituacao(e.situacao) +
+      (e.dias_parada != null ? '<span style="font-size:12.5px;color:var(--muted);">sem movimento há ' + diasHTML(e.dias_parada) + '</span>' : '') + bruta + '</div>' +
+    '<div class="ficha-section"><div class="ficha-section-title">Identificação</div><div class="ficha-grid">' +
+      campoFicha('Nº da emenda', fmtNumero(e.numero_emenda)) + campoFicha('Ano', e.ano) + campoFicha('Secretaria', e.secretaria, { vazio: nc }) + '</div></div>' +
+    '<div class="ficha-section"><div class="ficha-section-title">Localidade</div><div class="ficha-grid">' +
+      campoFicha('Município', e.municipio) + campoFicha('Região', e.regiao, { vazio: nc }) + campoFicha('Líder', e.lider, { vazio: nc }) + '</div></div>' +
+    '<div class="ficha-section"><div class="ficha-section-title">Entidade beneficiária</div><div class="ficha-grid">' +
+      campoFicha('Entidade', e.entidade, { vazio: nc }) + campoFicha('CNPJ', e.cnpj, { vazio: nc }) + campoFicha('Ofício', e.oficio, { vazio: nc }) + '</div></div>' +
+    '<div class="ficha-section"><div class="ficha-section-title">Contatos</div>' +
+      '<div class="ficha-sub">Responsável</div><div class="ficha-grid" style="margin-bottom:12px;">' +
+        campoFicha('Nome', e.resp_nome, { vazio: nc }) + campoFicha('Telefone', e.resp_contato, { vazio: nc }) + campoFicha('E-mail', e.resp_email, { vazio: nc }) + '</div>' +
+      '<div class="ficha-sub">Ponto focal</div><div class="ficha-grid">' +
+        campoFicha('Nome', e.pf_nome, { vazio: nc }) + campoFicha('Telefone', e.pf_contato, { vazio: nc }) + campoFicha('E-mail', e.pf_email, { vazio: nc }) + '</div></div>' +
+    '<div class="ficha-section"><div class="ficha-section-title">Detalhes</div>' +
+      campoFicha('Objeto', e.objeto, { full: true, vazio: nc }) + campoFicha('Referência', e.referencia, { full: true, pre: true, vazio: nc }) +
+      campoFicha('Justificativa', e.justificativa, { full: true, pre: true, vazio: nc }) +
+      (e.observacoes ? campoFicha('Observações', e.observacoes, { full: true, pre: true }) : '') + '</div>' +
+    '<div class="ficha-section"><div class="ficha-section-title">Valores e prazos</div><div class="ficha-grid">' +
+      '<div class="ficha-field"><label>Valor da emenda</label><div style="font-weight:600;">' + fmtMoney(e.valor_empenhado) + '</div></div>' +
+      '<div class="ficha-field"><label>Valor pago</label><div style="font-weight:600;">' + fmtMoney(e.valor_pago) + '</div></div>' +
+      campoFicha('Última movimentação', e.situacao_data ? fmtData(e.situacao_data) : '') +
+      campoFicha('Data de entrada', e.data_entrada ? fmtData(e.data_entrada) : '') +
+      campoFicha('Data do pagamento', e.pago_em ? fmtData(e.pago_em) : '') + '</div></div>' +
+    '<div class="ficha-section"><div class="ficha-section-title">Histórico</div><div class="hist-mini" id="ficha-hist"><span class="hint">Carregando...</span></div></div>';
+  $('modal-ficha').classList.add('open');
+  try {
+    const r = await api('/api/logs?emenda_id=' + id + '&limite=15');
+    $('ficha-hist').innerHTML = r.itens.length ? r.itens.map(l => logItemHTML(l, false)).join('') : '<span class="hint">Nenhuma alteração registrada.</span>';
+  } catch (err) { $('ficha-hist').innerHTML = '<span class="hint">Não foi possível carregar o histórico.</span>'; }
 }
-
-function fecharFicha() {
-  document.getElementById('modal-ficha').classList.remove('open');
-}
-
-function editarDaFicha() {
-  const id = fichaAtualId;
-  fecharFicha();
-  if (id) abrirModal(id);
-}
+function fecharFicha() { $('modal-ficha').classList.remove('open'); }
+function editarDaFicha() { const id = fichaAtualId; fecharFicha(); if (id) abrirModal(id); }
+async function excluirDaFicha() { const id = fichaAtualId; if (id && await excluirEmenda(id)) fecharFicha(); }
 
 // ============================================================
-// FORMULÁRIO (criar/editar)
+// FORMULÁRIO
 // ============================================================
+const CAMPOS_FORM = {
+  'f-numero': 'numero_emenda', 'f-ano': 'ano', 'f-secretaria': 'secretaria', 'f-municipio': 'municipio', 'f-regiao': 'regiao',
+  'f-lider': 'lider', 'f-oficio': 'oficio', 'f-referencia': 'referencia', 'f-entidade': 'entidade', 'f-cnpj': 'cnpj',
+  'f-resp-nome': 'resp_nome', 'f-resp-contato': 'resp_contato', 'f-resp-email': 'resp_email',
+  'f-pf-nome': 'pf_nome', 'f-pf-contato': 'pf_contato', 'f-pf-email': 'pf_email',
+  'f-objeto': 'objeto', 'f-justificativa': 'justificativa', 'f-situacao': 'situacao', 'f-observacoes': 'observacoes',
+  'f-data-entrada': 'data_entrada', 'f-pago-em': 'pago_em',
+};
+
 function abrirModal(id) {
-  document.getElementById('form-emenda').reset();
-  document.getElementById('f-id').value = '';
-  document.getElementById('f-versao').value = '';
-  document.getElementById('f-ano').value = new Date().getFullYear();
-  document.getElementById('modal-title').textContent = id ? 'Editar emenda' : 'Nova emenda';
+  $('form-emenda').reset();
+  $('f-id').value = ''; $('f-versao').value = '';
+  $('f-ano').value = new Date().getFullYear();
+  $('modal-title').textContent = id ? 'Editar emenda' : 'Nova emenda';
   regiaoEditadaManualmente = false;
   if (id) {
     const e = emendasCache.find(x => x.id === id);
     if (e) {
-      document.getElementById('f-id').value = e.id;
-      document.getElementById('f-versao').value = e.versao || 1;
-      document.getElementById('f-numero').value = e.numero_emenda || '';
-      document.getElementById('f-ano').value = e.ano || '';
-      document.getElementById('f-secretaria').value = e.secretaria || '';
-      document.getElementById('f-municipio').value = e.municipio || '';
-      document.getElementById('f-regiao').value = e.regiao || '';
-      document.getElementById('f-lider').value = e.lider || '';
-      document.getElementById('f-oficio').value = e.oficio || '';
-      document.getElementById('f-referencia').value = e.referencia || '';
-      document.getElementById('f-entidade').value = e.entidade || '';
-      document.getElementById('f-cnpj').value = e.cnpj || '';
-      document.getElementById('f-objeto').value = e.objeto || '';
-      document.getElementById('f-justificativa').value = e.justificativa || '';
-      document.getElementById('f-situacao').value = e.situacao || 'Aguardando';
-      document.getElementById('f-empenhado').value = e.valor_empenhado || '';
-      document.getElementById('f-pago').value = e.valor_pago || '';
-      document.getElementById('f-observacoes').value = e.observacoes || '';
-      if (e.regiao) regiaoEditadaManualmente = true;
+      $('f-id').value = e.id; $('f-versao').value = e.versao || 1;
+      Object.entries(CAMPOS_FORM).forEach(([el, campo]) => { $(el).value = (e[campo] == null || e[campo] === NSC) ? '' : String(e[campo]).slice(0, campo.includes('data') || campo === 'pago_em' ? 10 : undefined); });
+      $('f-situacao').value = e.situacao || 'Aguardando';
+      $('f-valor').value = e.valor_empenhado || ''; $('f-pago').value = e.valor_pago || '';
+      if (e.regiao && e.regiao !== NSC) regiaoEditadaManualmente = true;
     }
   }
-  document.getElementById('modal-overlay').classList.add('open');
-  setTimeout(() => document.getElementById('f-numero').focus(), 100);
+  $('modal-overlay').classList.add('open');
+  setTimeout(() => $('f-numero').focus(), 100);
 }
-
-function fecharModal() { document.getElementById('modal-overlay').classList.remove('open'); }
+function fecharModal() { $('modal-overlay').classList.remove('open'); }
 
 async function salvarEmenda(ev) {
   ev.preventDefault();
-  const btn = document.getElementById('btn-salvar');
-  if (btn.disabled) return;                    // evita duplo-submit
-
-  const id = document.getElementById('f-id').value;
-  const dados = {
-    numero_emenda: document.getElementById('f-numero').value.trim(),
-    ano: parseInt(document.getElementById('f-ano').value),
-    secretaria: document.getElementById('f-secretaria').value.trim(),
-    municipio: document.getElementById('f-municipio').value.trim(),
-    regiao: document.getElementById('f-regiao').value.trim(),
-    lider: document.getElementById('f-lider').value.trim(),
-    oficio: document.getElementById('f-oficio').value.trim(),
-    referencia: document.getElementById('f-referencia').value.trim(),
-    entidade: document.getElementById('f-entidade').value.trim(),
-    cnpj: document.getElementById('f-cnpj').value.trim(),
-    objeto: document.getElementById('f-objeto').value.trim(),
-    justificativa: document.getElementById('f-justificativa').value.trim(),
-    situacao: document.getElementById('f-situacao').value || 'Aguardando',
-    valor_empenhado: parseFloat(document.getElementById('f-empenhado').value) || 0,
-    valor_pago: parseFloat(document.getElementById('f-pago').value) || 0,
-    observacoes: document.getElementById('f-observacoes').value.trim(),
-  };
-  if (id) dados.versao = parseInt(document.getElementById('f-versao').value) || 1;
-
-  // Feedback visual
-  btn.disabled = true;
-  btn.textContent = 'Salvando...';
-
-  let sucesso = false;
-  let mensagem = 'Erro ao salvar emenda';
-  let tipo = 'error';
-
+  const btn = $('btn-salvar');
+  if (btn.disabled) return;
+  const id = $('f-id').value;
+  const dados = {};
+  Object.entries(CAMPOS_FORM).forEach(([el, campo]) => { dados[campo] = $(el).value.trim(); });
+  dados.ano = parseInt(dados.ano);
+  dados.valor_empenhado = parseFloat($('f-valor').value) || 0;
+  dados.valor_pago = parseFloat($('f-pago').value) || 0;
+  if (id) dados.versao = parseInt($('f-versao').value) || 1;
+  btn.disabled = true; btn.textContent = 'Salvando...';
+  let sucesso = false, msg = 'Erro ao salvar emenda', tipo = 'error';
   try {
-    const url = id ? '/api/emendas/' + id : '/api/emendas';
-    const method = id ? 'PUT' : 'POST';
-    const res = await fetch(url, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(dados),
-    });
-
-    if (res.status === 409) {
-      mensagem = 'Esta emenda foi alterada por outro usuário. Recarregue a página.';
-    } else if (!res.ok) {
-      throw new Error('Erro ao salvar: ' + res.status);
-    } else {
-      sucesso = true;
-      mensagem = id ? 'Emenda atualizada' : 'Emenda criada';
-      tipo = 'success';
-    }
+    await api(id ? '/api/emendas/' + id : '/api/emendas', { method: id ? 'PUT' : 'POST', json: dados });
+    sucesso = true; msg = id ? 'Emenda atualizada' : 'Emenda criada'; tipo = 'success';
   } catch (err) {
-    console.error(err);
-  } finally {
-    // RESTAURA o botão ANTES de fechar o modal
-    btn.disabled = false;
-    btn.textContent = 'Salvar';
-  }
-
+    msg = err.status === 409 ? 'Esta emenda foi alterada por outro usuário. Recarregue a página.' : err.message;
+  } finally { btn.disabled = false; btn.textContent = 'Salvar'; }
   if (sucesso) fecharModal();
-  toast(mensagem, tipo);
+  toast(msg, tipo);
   if (sucesso) carregarTudo();
 }
 
 async function excluirEmenda(id) {
-  if (!confirm('Confirma a exclusão desta emenda?')) return;
-  try {
-    const res = await fetch('/api/emendas/' + id, { method: 'DELETE' });
-    if (!res.ok) throw new Error();
-    toast('Emenda excluída', 'success'); carregarTudo();
-  } catch (err) { toast('Erro ao excluir', 'error'); }
+  if (!confirm('Mover esta emenda para a lixeira? Ela poderá ser restaurada depois.')) return false;
+  try { await api('/api/emendas/' + id, { method: 'DELETE' }); toast('Emenda movida para a lixeira'); carregarTudo(); return true; }
+  catch (err) { toast(err.message, 'error'); return false; }
 }
 
-function toast(msg, tipo) {
-  const el = document.getElementById('toast');
-  document.getElementById('toast-msg').textContent = msg;
-  el.className = 'toast show toast-' + tipo;
-  el.querySelector('.toast-icon').textContent = tipo === 'success' ? '✓' : '✕';
-  setTimeout(() => el.classList.remove('show'), 3000);
+// ============================================================
+// ATIVIDADE (LOGS)
+// ============================================================
+const ROTULO_ACAO = { criou: 'Criação', editou: 'Edição', excluiu: 'Exclusão', restaurou: 'Restauração', importou: 'Importação', 'regiões': 'Regiões', 'usuário': 'Usuários' };
+
+function logItemHTML(l, mostrarEmenda) {
+  const mud = (l.mudancas || []).map(m =>
+    '<div><b>' + escapeHTML(m.campo) + ':</b> ' + (m.de ? '<span class="de">' + escapeHTML(m.de) + '</span> → ' : '') + escapeHTML(m.para || '(vazio)') + '</div>').join('');
+  const emenda = l.numero_emenda
+    ? (l.emenda_id && mostrarEmenda ? '<a onclick="abrirFichaPorId(' + l.emenda_id + ')">Emenda ' + escapeHTML(fmtNumero(l.numero_emenda)) + '</a>' : 'Emenda ' + escapeHTML(fmtNumero(l.numero_emenda))) +
+      (l.municipio ? ' · ' + escapeHTML(l.municipio) : '') + (l.ano ? ' · ' + l.ano : '')
+    : '';
+  const quando = '<div class="log-when">' + escapeHTML(fmtDataHora(l.criado_em)) + '<br><span class="log-who">' + escapeHTML(l.usuario || 'sistema') + '</span></div>';
+  const corpo = '<div><div class="log-head"><span class="log-acao ' + escapeHTML(l.acao) + '">' + escapeHTML(ROTULO_ACAO[l.acao] || l.acao) + '</span>' +
+    (mostrarEmenda ? emenda : '') + (l.detalhe ? (mostrarEmenda && emenda ? ' — ' : '') + escapeHTML(l.detalhe) : '') + '</div>' +
+    (mud ? '<div class="log-mud">' + mud + '</div>' : '') + '</div>';
+  return mostrarEmenda
+    ? '<div class="log-item">' + quando + corpo + '</div>'
+    : '<div class="log-item"><div class="log-when">' + escapeHTML(fmtDataHora(l.criado_em)) + ' · <span class="log-who">' + escapeHTML(l.usuario || 'sistema') + '</span></div>' + corpo + '</div>';
+}
+
+function debounceLogs() { clearTimeout(logTimer); logTimer = setTimeout(() => carregarLogs(true), 300); }
+
+async function carregarLogs(reiniciar) {
+  if (reiniciar) { logsOffset = 0; $('log-list').innerHTML = ''; }
+  const p = new URLSearchParams({ limite: 50, offset: logsOffset });
+  if ($('log-busca').value.trim()) p.append('q', $('log-busca').value.trim());
+  if ($('log-usuario').value) p.append('usuario', $('log-usuario').value);
+  if ($('log-acao').value) p.append('acao', $('log-acao').value);
+  try {
+    const r = await api('/api/logs?' + p);
+    const sel = $('log-usuario'), atual = sel.value;
+    sel.innerHTML = '<option value="">Todos os usuários</option>' + r.usuarios.map(u => '<option>' + escapeHTML(u) + '</option>').join('');
+    sel.value = atual;
+    $('log-list').insertAdjacentHTML('beforeend', r.itens.map(l => logItemHTML(l, true)).join(''));
+    logsOffset += r.itens.length;
+    if (!$('log-list').children.length) $('log-list').innerHTML = '<div class="empty"><div class="empty-title">Nenhuma atividade encontrada</div></div>';
+    $('log-mais').hidden = logsOffset >= r.total;
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+// ============================================================
+// LIXEIRA
+// ============================================================
+async function carregarLixeira() {
+  try {
+    const lista = await api('/api/lixeira');
+    $('empty-lixeira').hidden = lista.length !== 0;
+    $('tbody-lixeira').innerHTML = lista.map(i => {
+      const d = i.dados || {};
+      return '<tr style="cursor:default;"><td>' + escapeHTML(fmtDataHora(i.excluida_em)) + '</td><td>' + escapeHTML(i.excluida_por || '—') + '</td>' +
+        '<td><div class="cell-main">' + escapeHTML(fmtNumero(d.numero_emenda)) + '</div><div class="cell-sub">' + escapeHTML(d.ano) + '</div></td>' +
+        '<td>' + escapeHTML(d.municipio || '—') + '</td><td>' + escapeHTML(d.entidade || '—') + '</td>' +
+        '<td class="cell-value">' + fmtMoney(d.valor_empenhado) + '</td>' +
+        '<td class="right" style="white-space:nowrap;"><button class="btn btn-secondary btn-sm" onclick="restaurarItem(' + i.id + ')">Restaurar</button>' +
+        (auth.admin ? ' <button class="btn btn-danger btn-sm" onclick="excluirDefinitivo(' + i.id + ')">Excluir definitivamente</button>' : '') + '</td></tr>';
+    }).join('');
+  } catch (err) { toast(err.message, 'error'); }
+}
+async function restaurarItem(id) {
+  try { await api('/api/lixeira/' + id + '/restaurar', { method: 'POST' }); toast('Emenda restaurada'); carregarLixeira(); carregarTudo(); }
+  catch (err) { toast(err.message, 'error'); }
+}
+async function excluirDefinitivo(id) {
+  if (!confirm('Excluir definitivamente? Esta ação não pode ser desfeita.')) return;
+  try { await api('/api/lixeira/' + id, { method: 'DELETE' }); toast('Excluída definitivamente'); carregarLixeira(); }
+  catch (err) { toast(err.message, 'error'); }
+}
+
+// ============================================================
+// PAINEL
+// ============================================================
+function barras(lista, opts) {
+  opts = opts || {};
+  if (!lista || !lista.length) return '<div class="sem-dados">Sem dados para exibir.</div>';
+  const campo = opts.campo || 'n', fmt = opts.fmt || (v => v);
+  const max = Math.max.apply(null, lista.map(i => Number(i[campo]) || 0)) || 1;
+  return lista.map(i => {
+    const v = Number(i[campo]) || 0;
+    return '<div class="bar-row"><div class="bar-label" title="' + escapeHTML(i.nome) + '">' + escapeHTML(i.nome) + '</div>' +
+      '<div class="bar-track"><div class="bar-fill" style="width:' + Math.max(2, v / max * 100) + '%"></div></div>' +
+      '<div class="bar-val">' + fmt(v, i) + '</div></div>';
+  }).join('');
+}
+
+function donut(lista) {
+  const cores = { Pago: 'var(--c-pago)', Aguardando: 'var(--c-aguardando)', Cancelada: 'var(--c-cancelada)' };
+  const total = lista.reduce((s, i) => s + i.n, 0);
+  if (!total) return '<div class="sem-dados">Sem dados para exibir.</div>';
+  const R = 42, C = 2 * Math.PI * R;
+  let off = 0, arcos = '';
+  lista.forEach(i => {
+    const len = i.n / total * C;
+    arcos += '<circle cx="60" cy="60" r="' + R + '" fill="none" stroke="' + (cores[i.nome] || '#aab') + '" stroke-width="16" stroke-dasharray="' + len + ' ' + (C - len) + '" stroke-dashoffset="' + (-off) + '" transform="rotate(-90 60 60)"/>';
+    off += len;
+  });
+  const legenda = lista.map(i => '<div><i style="background:' + (cores[i.nome] || '#aab') + '"></i><span><b>' + i.n + '</b> ' + escapeHTML(i.nome).toLowerCase() + ' <span class="faint">(' + Math.round(i.n / total * 100) + '% · ' + fmtMoneyCurto(i.valor) + ')</span></span></div>').join('');
+  return '<div class="donut-wrap"><svg width="130" height="130" viewBox="0 0 120 120">' + arcos +
+    '<text x="60" y="58" text-anchor="middle" font-size="20" font-weight="600" fill="currentColor">' + total + '</text>' +
+    '<text x="60" y="73" text-anchor="middle" font-size="9" fill="var(--muted)">emendas</text></svg><div class="legend">' + legenda + '</div></div>';
+}
+
+function colunas(lista) {
+  if (!lista || !lista.length) return '<div class="sem-dados">Ainda não há pagamentos com data registrada.</div>';
+  const W = 520, H = 190, base = 150, topo = 24, n = lista.length, gap = 10;
+  const bw = Math.min(46, (W - 20 - gap * (n - 1)) / n);
+  const total = n * bw + (n - 1) * gap, x0 = (W - total) / 2;
+  const max = Math.max.apply(null, lista.map(i => i.valor)) || 1;
+  let svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" style="max-height:210px"><line x1="0" y1="' + base + '" x2="' + W + '" y2="' + base + '" stroke="var(--border)"/>';
+  lista.forEach((i, k) => {
+    const h = Math.max(2, i.valor / max * (base - topo)), x = x0 + k * (bw + gap);
+    const [a, m] = String(i.nome).split('-');
+    svg += '<rect x="' + x + '" y="' + (base - h) + '" width="' + bw + '" height="' + h + '" fill="var(--accent)"/>' +
+      '<text x="' + (x + bw / 2) + '" y="' + (base - h - 5) + '" text-anchor="middle" font-size="10" fill="var(--muted)">' + fmtMoneyCurto(i.valor).replace('R$ ', '') + '</text>' +
+      '<text x="' + (x + bw / 2) + '" y="' + (base + 15) + '" text-anchor="middle" font-size="10.5" fill="var(--muted)">' + m + '/' + a.slice(2) + '</text>' +
+      '<text x="' + (x + bw / 2) + '" y="' + (base + 28) + '" text-anchor="middle" font-size="10" fill="var(--faint)">' + i.n + ' emenda' + (i.n === 1 ? '' : 's') + '</text>';
+  });
+  return svg + '</svg>';
+}
+
+function cardRanking(chave, titulo, d) {
+  const modo = painelModo[chave];
+  const lista = d[chave + '_' + modo];
+  const fmt = modo === 'n' ? (v, i) => v + ' <span class="faint">(' + i.pagas + ' pagas)</span>' : v => fmtMoneyCurto(v);
+  return '<div class="card"><div class="card-head"><div class="card-title">' + titulo + '</div>' +
+    '<div class="seg"><button class="' + (modo === 'n' ? 'on' : '') + '" onclick="trocarModo(\'' + chave + '\',\'n\')">Quantidade</button>' +
+    '<button class="' + (modo === 'valor' ? 'on' : '') + '" onclick="trocarModo(\'' + chave + '\',\'valor\')">Valor</button></div></div>' +
+    barras(lista, { campo: modo, fmt }) + '</div>';
+}
+
+let painelDados = null;
+function trocarModo(chave, modo) { painelModo[chave] = modo; renderPainel(); }
+
+async function carregarPainel() {
+  const ano = $('painel-ano').value;
+  try { painelDados = await api('/api/estatisticas' + (ano ? '?ano=' + ano : '')); renderPainel(); }
+  catch (err) { toast(err.message, 'error'); }
+}
+
+function renderPainel() {
+  const d = painelDados; if (!d) return;
+  const r = d.resumo, t = d.tempo_pagamento;
+  const pct = r.valor_total ? Math.round(r.valor_pago / r.valor_total * 100) : 0;
+  $('painel-sub').textContent = $('painel-ano').value ? 'emendas de ' + $('painel-ano').value : 'todos os anos';
+  $('painel-kpis').innerHTML =
+    '<div class="kpi"><div class="kpi-label">Emendas</div><div class="kpi-value">' + r.total + '</div></div>' +
+    '<div class="kpi"><div class="kpi-label">Valor total</div><div class="kpi-value small">' + fmtMoneyCurto(r.valor_total) + '</div></div>' +
+    '<div class="kpi"><div class="kpi-label">Valor pago</div><div class="kpi-value small">' + fmtMoneyCurto(r.valor_pago) + '</div><div class="kpi-sub">' + pct + '% do total</div></div>' +
+    '<div class="kpi"><div class="kpi-label">Em aberto</div><div class="kpi-value">' + r.aguardando + '</div><div class="kpi-sub">' + r.pagas + ' pagas</div></div>' +
+    '<div class="kpi"><div class="kpi-label">Sem movimento 30+ dias</div><div class="kpi-value">' + r.paradas_30 + '</div></div>' +
+    '<div class="kpi"><div class="kpi-label">Tempo médio até pagar</div><div class="kpi-value">' + (t.n ? Math.round(t.media) + ' dias' : '—') + '</div><div class="kpi-sub">' + (t.n ? 'base: ' + t.n + ' pagamentos' : 'sem datas ainda') + '</div></div>';
+
+  const tempoHTML = t.n
+    ? '<div class="big-nums"><div><div class="n">' + Math.round(t.media) + '</div><div class="l">dias em média</div></div>' +
+      '<div><div class="n">' + Math.round(t.mediana) + '</div><div class="l">dias (mediana)</div></div>' +
+      '<div><div class="n">' + t.minimo + ' – ' + t.maximo + '</div><div class="l">menor e maior prazo</div></div>' +
+      '<div><div class="n">' + t.n + '</div><div class="l">pagamentos medidos</div></div></div>' +
+      (d.tempo_secretaria.length ? '<div class="ficha-sub" style="margin-top:6px;">Média de dias por secretaria</div>' + barras(d.tempo_secretaria.map(i => ({ nome: i.nome, n: Math.round(i.media), q: i.n })), { campo: 'n', fmt: (v, i) => v + ' d <span class="faint">(' + i.q + ')</span>' }) : '')
+    : '<div class="sem-dados">Ainda não há pagamentos com data registrada. O prazo é medido da data de entrada (ou do cadastro no sistema) até a data do pagamento. Ele passa a ser calculado conforme as emendas são pagas ou quando a data do pagamento é informada na emenda.</div>';
+
+  $('painel-cards').innerHTML =
+    '<div class="card"><div class="card-head"><div class="card-title">Situação das emendas</div></div>' + donut(d.por_situacao) + '</div>' +
+    '<div class="card"><div class="card-head"><div class="card-title">Emendas em aberto por tempo sem movimento</div></div>' + barras(d.faixas_paradas, { campo: 'n' }) +
+      '<div class="card-note">Conta a partir da última data citada na situação da planilha ou da última alteração feita no sistema.</div></div>' +
+    cardRanking('lider', 'Quem mais lidera', d) + cardRanking('municipio', 'Para onde mais é enviado (município)', d) +
+    cardRanking('regiao', 'Regiões', d) + cardRanking('secretaria', 'Secretarias', d) +
+    '<div class="card"><div class="card-head"><div class="card-title">Objetos mais frequentes</div></div>' + barras(d.objeto_n, { campo: 'n' }) + '</div>' +
+    '<div class="card"><div class="card-head"><div class="card-title">Tempo até o pagamento</div></div>' + tempoHTML + '</div>' +
+    '<div class="card wide"><div class="card-head"><div class="card-title">Valor pago por mês</div></div>' + colunas(d.pagamentos_mes) + '</div>' +
+    '<div class="card wide"><div class="card-head"><div class="card-title">Comparativo por ano</div></div>' +
+      barras(d.por_ano.map(i => ({ nome: i.nome + ' — ' + i.n + ' emendas', valor: i.valor, pago: i.pago })), { campo: 'valor', fmt: (v, i) => fmtMoneyCurto(v) + ' <span class="faint">(pago ' + fmtMoneyCurto(i.pago) + ')</span>' }) + '</div>';
 }
 
 // ============================================================
 // IMPORTAÇÃO
 // ============================================================
-function abrirModalImportar() {
-  document.getElementById('imp-arquivo').value = '';
-  document.getElementById('imp-preview').innerHTML = '';
-  document.getElementById('modal-importar').classList.add('open');
+function abrirModalImportar() { $('imp-arquivo').value = ''; resetarPreview(); $('modal-importar').classList.add('open'); }
+function fecharModalImportar() { $('modal-importar').classList.remove('open'); }
+function resetarPreview() { previewOk = false; $('btn-importar').disabled = true; $('imp-preview').innerHTML = ''; }
+
+function listaMudancas(itens) {
+  return itens.map(i => '<div class="it"><b>' + escapeHTML(fmtNumero(i.numero)) + '</b> · ' + escapeHTML(i.municipio) + (i.ano ? ' · ' + i.ano : '') +
+    (i.mudancas || []).map(m => '<div style="color:var(--muted);">' + escapeHTML(m.campo) + ': ' + (m.de ? '<span style="text-decoration:line-through;color:var(--faint);">' + escapeHTML(m.de) + '</span> → ' : '') + escapeHTML(m.para || '(vazio)') + '</div>').join('') + '</div>').join('');
 }
-function fecharModalImportar() { document.getElementById('modal-importar').classList.remove('open'); }
+
+function blocoImport(chave, v) {
+  if (v.tipo === 'contatos') {
+    return '<div class="imp-bloco"><div class="imp-bloco-h">Contatos (aba ENTIDADES)</div><div class="imp-bloco-b">' +
+      '<b>' + v.encontradas + '</b> entidades localizadas · <b>' + v.alteradas + '</b> emendas com contatos novos ou alterados' +
+      (v.n_nao_encontradas ? ' · <span style="color:var(--warn);">' + v.n_nao_encontradas + ' sem correspondência</span>' : '') +
+      (v.lista_alteradas.length ? '<details><summary>Ver alterações</summary><div class="imp-lista">' + listaMudancas(v.lista_alteradas) + '</div></details>' : '') +
+      (v.nao_encontradas.length ? '<details><summary>Ver entidades sem correspondência</summary><div class="imp-lista">' + v.nao_encontradas.map(n => '<div class="it">' + escapeHTML(n) + '</div>').join('') + '</div></details>' : '') + '</div></div>';
+  }
+  const nc = Object.entries(v.nao_consta || {}).map(([k, n]) => k + ': ' + n).join(' · ');
+  return '<div class="imp-bloco"><div class="imp-bloco-h">Aba ' + chave + ' · ' + v.total_linhas + ' linhas</div><div class="imp-bloco-b">' +
+    '<span class="tag nova">' + v.novas + ' novas</span><span class="tag alt">' + v.alteradas + ' alteradas</span><span class="tag">' + v.iguais + ' sem alteração</span>' +
+    (v.ignoradas ? '<span class="tag">' + v.ignoradas + ' ignoradas</span>' : '') +
+    '<div style="margin-top:6px;color:var(--muted);">' + v.pagas + ' pagas · ' + v.aguardando + ' aguardando' + (v.sem_numero ? ' · ' + v.sem_numero + ' sem nº na planilha' : '') + '</div>' +
+    (nc ? '<div class="hint" style="margin-top:4px;">Campos sem informação ("não consta na planilha"): ' + escapeHTML(nc) + '</div>' : '') +
+    (v.exemplos_novas.length ? '<details><summary>Ver exemplos de emendas novas</summary><div class="imp-lista">' + v.exemplos_novas.map(n => '<div class="it"><b>' + escapeHTML(fmtNumero(n.numero)) + '</b> · ' + escapeHTML(n.municipio) + ' · ' + fmtMoney(n.valor) + '</div>').join('') + '</div></details>' : '') +
+    (v.lista_alteradas.length ? '<details><summary>Ver alterações (' + v.alteradas + (v.alteradas > v.lista_alteradas.length ? ', mostrando ' + v.lista_alteradas.length : '') + ')</summary><div class="imp-lista">' + listaMudancas(v.lista_alteradas) + '</div></details>' : '') +
+    '</div></div>';
+}
+
+async function chamarImportacao(rota) {
+  const arquivo = $('imp-arquivo').files[0];
+  if (!arquivo) { toast('Selecione um arquivo', 'error'); return null; }
+  const fd = new FormData(); fd.append('arquivo', arquivo); fd.append('aba', $('imp-aba').value);
+  return api(rota, { method: 'POST', body: fd });
+}
 
 async function previewImportar() {
-  const arquivo = document.getElementById('imp-arquivo').files[0];
-  const aba = document.getElementById('imp-aba').value;
-  const preview = document.getElementById('imp-preview');
-  if (!arquivo) { toast('Selecione um arquivo', 'error'); return; }
-  preview.innerHTML = 'Lendo planilha…';
-  const fd = new FormData();
-  fd.append('arquivo', arquivo);
-  fd.append('aba', aba);
+  const box = $('imp-preview'); resetarPreview();
+  if (!$('imp-arquivo').files[0]) { toast('Selecione um arquivo', 'error'); return; }
+  box.innerHTML = '<span class="hint">Lendo planilha…</span>';
+  $('btn-preview').disabled = true;
   try {
-    const res = await fetch('/api/importar/preview', { method: 'POST', body: fd });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.erro || 'Erro');
-    preview.innerHTML =
-      '<strong>' + data.total_linhas + '</strong> linhas válidas' +
-      (data.ignoradas ? ' · <span style="color: var(--warning);">' + data.ignoradas + ' ignoradas</span>' : '') +
-      '<br><small style="color: var(--text-subtle);">Amostra: ' +
-      data.amostra.map(r => r.numero_emenda + ' · ' + r.municipio + ' · R$ ' + r.valor_empenhado + ' (' + r.situacao + ')').join('<br>') +
-      '</small>';
-  } catch (err) {
-    preview.innerHTML = '<span style="color: var(--danger);">' + escapeHTML(err.message) + '</span>';
-  }
+    const data = await chamarImportacao('/api/importar/preview');
+    const abas = data.abas, chaves = Object.keys(abas);
+    box.innerHTML = chaves.map(k => blocoImport(k, abas[k])).join('');
+    const mudancas = chaves.reduce((s, k) => s + (abas[k].novas || 0) + (abas[k].alteradas || 0), 0);
+    previewOk = true; $('btn-importar').disabled = false;
+    if (!mudancas) box.insertAdjacentHTML('afterbegin', '<div class="hint" style="margin-top:8px;">Nenhuma diferença em relação ao que já está no sistema.</div>');
+  } catch (err) { box.innerHTML = '<span style="color:var(--bad);">' + escapeHTML(err.message) + '</span>'; }
+  finally { $('btn-preview').disabled = false; }
 }
 
 async function executarImportar() {
-  const arquivo = document.getElementById('imp-arquivo').files[0];
-  const aba = document.getElementById('imp-aba').value;
-  if (!arquivo) { toast('Selecione um arquivo', 'error'); return; }
-  if (!confirm('Importar a aba ' + aba + '? Emendas com mesmo Nº e ano serão atualizadas.')) return;
-  const btn = document.getElementById('btn-importar');
-  btn.disabled = true; btn.textContent = 'Importando…';
-  const fd = new FormData();
-  fd.append('arquivo', arquivo);
-  fd.append('aba', aba);
+  if (!previewOk) { toast('Faça a pré-visualização antes de importar', 'error'); return; }
+  if (!confirm('Aplicar as alterações mostradas na pré-visualização?')) return;
+  const btn = $('btn-importar'); btn.disabled = true; btn.textContent = 'Importando…';
   try {
-    const res = await fetch('/api/importar', { method: 'POST', body: fd });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.erro || 'Erro ao importar');
-    toast(data.importadas + ' emendas importadas', 'success');
-    fecharModalImportar();
-    carregarTudo();
-  } catch (err) {
-    toast('Falha: ' + err.message, 'error');
-  } finally {
-    btn.disabled = false; btn.textContent = 'Importar';
-  }
+    const data = await chamarImportacao('/api/importar');
+    toast(data.importadas + ' emendas novas ou atualizadas');
+    fecharModalImportar(); carregarTudo(); carregarRegioes();
+  } catch (err) { toast('Falha: ' + err.message, 'error'); }
+  finally { btn.textContent = 'Importar'; btn.disabled = !previewOk; }
+}
+
+// ============================================================
+// USUÁRIOS, SENHA E REGIÕES
+// ============================================================
+function abrirSenha() { ['s-atual', 's-nova', 's-nova2'].forEach(i => { $(i).value = ''; }); $('modal-senha').classList.add('open'); }
+function fecharSenha() { $('modal-senha').classList.remove('open'); }
+async function salvarSenha() {
+  if ($('s-nova').value !== $('s-nova2').value) { toast('As senhas novas não conferem', 'error'); return; }
+  try { await api('/api/senha', { method: 'PUT', json: { atual: $('s-atual').value, nova: $('s-nova').value } }); toast('Senha alterada'); fecharSenha(); }
+  catch (err) { toast(err.message, 'error'); }
+}
+
+async function abrirUsuarios() { $('modal-usuarios').classList.add('open'); ['u-nome', 'u-usuario', 'u-senha'].forEach(i => { $(i).value = ''; }); $('u-admin').checked = false; await carregarUsuarios(); }
+function fecharUsuarios() { $('modal-usuarios').classList.remove('open'); }
+async function carregarUsuarios() {
+  try {
+    const lista = await api('/api/usuarios');
+    $('tbody-usuarios').innerHTML = lista.map(u => '<tr style="cursor:default;"><td>' + escapeHTML(u.nome) + '</td><td>' + escapeHTML(u.usuario) + '</td><td>' + (u.admin ? 'Administrador' : 'Usuário') + '</td>' +
+      '<td class="right" style="white-space:nowrap;"><button class="btn btn-secondary btn-sm" onclick="redefinirSenha(' + u.id + ')">Redefinir senha</button>' +
+      (u.id !== auth.id && u.usuario !== auth.usuario ? ' <button class="btn btn-danger btn-sm" onclick="removerUsuario(' + u.id + ')">Remover</button>' : '') + '</td></tr>').join('');
+  } catch (err) { toast(err.message, 'error'); }
+}
+async function criarUsuario() {
+  try {
+    await api('/api/usuarios', { method: 'POST', json: { nome: $('u-nome').value, usuario: $('u-usuario').value, senha: $('u-senha').value, admin: $('u-admin').checked } });
+    toast('Usuário criado'); ['u-nome', 'u-usuario', 'u-senha'].forEach(i => { $(i).value = ''; }); $('u-admin').checked = false; carregarUsuarios();
+  } catch (err) { toast(err.message, 'error'); }
+}
+async function redefinirSenha(id) {
+  const nova = prompt('Nova senha para este usuário (mínimo 6 caracteres):');
+  if (!nova) return;
+  try { await api('/api/usuarios/' + id + '/senha', { method: 'PUT', json: { nova } }); toast('Senha redefinida'); } catch (err) { toast(err.message, 'error'); }
+}
+async function removerUsuario(id) {
+  if (!confirm('Remover este usuário?')) return;
+  try { await api('/api/usuarios/' + id, { method: 'DELETE' }); toast('Usuário removido'); carregarUsuarios(); } catch (err) { toast(err.message, 'error'); }
+}
+
+function abrirRegioes() { $('reg-arquivo').value = ''; $('reg-info').textContent = Object.keys(regioesMap).length + ' municípios cadastrados atualmente.'; $('modal-regioes').classList.add('open'); }
+function fecharRegioes() { $('modal-regioes').classList.remove('open'); }
+async function enviarRegioes() {
+  const arq = $('reg-arquivo').files[0];
+  if (!arq) { toast('Selecione um arquivo', 'error'); return; }
+  const fd = new FormData(); fd.append('arquivo', arq);
+  try {
+    const r = await api('/api/regioes/importar', { method: 'POST', body: fd });
+    toast(r.municipios + ' municípios importados; ' + r.emendas_atualizadas + ' emendas atualizadas');
+    await carregarRegioes(); carregarTudo(); fecharRegioes();
+  } catch (err) { toast(err.message, 'error'); }
 }
 
 // ============================================================
 // INICIALIZAÇÃO
 // ============================================================
-document.addEventListener('DOMContentLoaded', function() {
-  configurarAutoRegiao();
-
-  document.querySelectorAll('thead th.sortable').forEach(th => {
-    th.addEventListener('click', () => sortBy(th.dataset.sort));
-  });
-
 function setupOverlayClose(overlayEl, closeFn) {
   let downOnOverlay = false;
   const setDown = e => { downOnOverlay = (e.target === overlayEl); };
   overlayEl.addEventListener('mousedown', setDown);
   overlayEl.addEventListener('touchstart', setDown, { passive: true });
-  overlayEl.addEventListener('click', function(e) {
-    if (downOnOverlay && e.target === overlayEl) closeFn();
-    downOnOverlay = false;
-  });
+  overlayEl.addEventListener('click', e => { if (downOnOverlay && e.target === overlayEl) closeFn(); downOnOverlay = false; });
 }
 
-setupOverlayClose(document.getElementById('modal-overlay'), fecharModal);
-setupOverlayClose(document.getElementById('modal-ficha'), fecharFicha);
-setupOverlayClose(document.getElementById('modal-importar'), fecharModalImportar);
+document.addEventListener('DOMContentLoaded', function () {
+  document.title = NOME_SISTEMA;
+  document.querySelectorAll('[data-nome-sistema]').forEach(el => { el.textContent = NOME_SISTEMA; });
+  configurarAutoRegiao();
 
-// Previne Enter de submeter o form acidentalmente
-document.getElementById('form-emenda').addEventListener('keydown', function(e) {
-  if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
-    e.preventDefault();
-  }
-});
+  document.querySelectorAll('thead th.sortable').forEach(th => th.addEventListener('click', () => sortBy(th.dataset.sort)));
+  document.querySelectorAll('#nav button').forEach(b => b.addEventListener('click', () => mostrarView(b.dataset.view)));
+  document.querySelectorAll('#chips-dias .chip').forEach(c => c.addEventListener('click', () => {
+    $('filtro-parada').value = ($('filtro-parada').value === c.dataset.d) ? '' : c.dataset.d; marcarChips(); carregarEmendas();
+  }));
 
-  document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') { fecharModal(); fecharFicha(); fecharModalImportar(); }
+  setupOverlayClose($('modal-overlay'), fecharModal);
+  setupOverlayClose($('modal-ficha'), fecharFicha);
+  setupOverlayClose($('modal-importar'), fecharModalImportar);
+  setupOverlayClose($('modal-usuarios'), fecharUsuarios);
+  setupOverlayClose($('modal-senha'), fecharSenha);
+  setupOverlayClose($('modal-regioes'), fecharRegioes);
+
+  $('form-emenda').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') e.preventDefault(); });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { fecharModal(); fecharFicha(); fecharModalImportar(); fecharUsuarios(); fecharSenha(); fecharRegioes(); }
   });
 
-  carregarTudo();
+  // login persistente (localStorage)
+  try { auth = JSON.parse(localStorage.getItem(CHAVE_AUTH) || 'null'); } catch (e) { auth = null; }
+  if (auth && auth.token) iniciarApp(); else mostrarLogin();
 });
 </script>
 </body>
