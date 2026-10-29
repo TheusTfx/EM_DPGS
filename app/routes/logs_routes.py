@@ -13,6 +13,7 @@ def listar():
     usuario = request.args.get('usuario', '').strip()
     acao = request.args.get('acao', '').strip()
     emenda_id = request.args.get('emenda_id', '').strip()
+    demanda_id = request.args.get('demanda_id', '').strip()
     limite = int(request.args.get('limite', 50))
     offset = int(request.args.get('offset', 0))
 
@@ -27,6 +28,8 @@ def listar():
         where += ' AND acao = %s'; params.append(acao)
     if emenda_id:
         where += ' AND emenda_id = %s'; params.append(int(emenda_id))
+    if demanda_id:
+        where += ' AND demanda_id = %s'; params.append(int(demanda_id))
 
     db = get_db()
     with db.cursor() as cur:
