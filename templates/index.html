@@ -40,7 +40,7 @@
     </nav>
     <div class="header-actions">
       <button class="btn btn-ghost btn-sm" onclick="abrirModalImportar()">Importar</button>
-      <button class="btn btn-primary btn-sm" onclick="abrirModal()">Nova emenda</button>
+      <button class="btn btn-primary btn-sm" id="btn-novo" onclick="abrirModal()">Nova emenda</button>
       <div class="user-menu">
         <button class="user-btn" id="user-btn" onclick="toggleMenu(event)">Usuário</button>
         <div class="dropdown" id="user-dropdown" hidden>
@@ -122,7 +122,6 @@
 <section id="view-demandas" hidden>
   <div class="page-title">
     <span>Demandas <small>solicitações ao estado</small></span>
-    <button class="btn btn-primary" onclick="abrirModalDemanda()">Nova demanda</button>
   </div>
 
   <section class="kpis">
