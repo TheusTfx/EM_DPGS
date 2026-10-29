@@ -344,7 +344,7 @@ function renderTabela() {
       '<td class="cell-obj" title="' + escapeHTML(e.objeto || '') + '"><div class="cell-main">' + escapeHTML(e.objeto || '—') + '</div></td>' +
       '<td class="cell-value">' + fmtMoney(e.valor_empenhado) + '<small>Pago: ' + fmtMoney(e.valor_pago) + '</small></td>' +
       '<td>' + badgeSituacao(e.situacao) + '</td>' +
-      '<td class="right">' + diasHTML(e.dias_parada) + '</td>' +
+      '<td class="right">' + (e.situacao_data ? fmtDataCurta(e.situacao_data) : '<span class="faint">—</span>') + '</td>' +
       '<td class="cell-actions"><div class="row-actions">' +
         '<button class="btn-icon" onclick="event.stopPropagation(); abrirModal(' + e.id + ')" title="Editar">' + icone(ICO_EDIT) + '</button>' +
         '<button class="btn-icon danger" onclick="event.stopPropagation(); excluirEmenda(' + e.id + ')" title="Excluir">' + icone(ICO_DEL) + '</button>' +
