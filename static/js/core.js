@@ -227,8 +227,6 @@ function mostrarView(v) {
     $('tabela-emendas').hidden = modoDemandas;
     $('tabela-demandas-card').hidden = !modoDemandas;
     $('subtitulo-modo').textContent = modoDemandas
-      ? 'demandas extras'
-      : 'controle de emendas parlamentares';
 
     const btnNovo = $('btn-novo');
     const btnImp = $('btn-importar-emendas');
