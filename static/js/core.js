@@ -190,7 +190,6 @@ function mostrarView(v) {
     b.classList.toggle('active', b.dataset.view === v);
   });
 
-  // Botão "Nova emenda" / "Nova demanda" no header
   const btnNovo = $('btn-novo');
   if (btnNovo) {
     if (v === 'demandas') {
