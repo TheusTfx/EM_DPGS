@@ -8,6 +8,12 @@ from ..auth import login_obrigatorio
 from ..log import registrar_log
 from ..config import STATUS_DEMANDAS
 
+
+def _up(v):
+    """Sobe texto pra maiúsculo (None e vazio viram string vazia)."""
+    return (v or '').strip().upper()
+
+
 bp = Blueprint('demandas', __name__, url_prefix='/api')
 
 
@@ -80,16 +86,16 @@ def criar():
                 RETURNING id
             ''', (
                 int(d['ano']),
-                (d.get('secretaria') or '').strip(),
-                (d.get('municipio') or '').strip(),
-                (d.get('destinatario') or '').strip(),
-                (d.get('objeto') or '').strip(),
+                _up(d.get('secretaria')),
+                _up(d.get('municipio')),
+                _up(d.get('destinatario')),
+                _up(d.get('objeto')),
                 float(d.get('valor') or 0),
-                (d.get('proposta_fpe') or '').strip(),
+                _up(d.get('proposta_fpe')),
                 d.get('status') or 'Aguardando',
                 (d.get('observacoes') or '').strip(),
-                (d.get('convenio') or '').strip(),
-                (d.get('proa_sei') or '').strip(),
+                _up(d.get('convenio')),
+                _up(d.get('proa_sei')),
                 (d.get('data_pagto') or '').strip(),
                 datetime.now().isoformat(timespec='seconds'),
                 datetime.now().isoformat(timespec='seconds'),
@@ -97,11 +103,11 @@ def criar():
             new_id = cur.fetchone()['id']
         db.commit()
         registrar_log('criou', demanda_id=new_id,
-                      municipio=d.get('municipio'),
+                      municipio=_up(d.get('municipio')),
                       ano=int(d['ano']),
                       detalhe=f"Demanda {d['ano']}"
-                              + (f" · {d.get('secretaria')}" if d.get('secretaria') else '')
-                              + (f" · {d.get('municipio')}" if d.get('municipio') else ''))
+                              + (f" · {_up(d.get('secretaria'))}" if d.get('secretaria') else '')
+                              + (f" · {_up(d.get('municipio'))}" if d.get('municipio') else ''))
         return jsonify({'id': new_id, 'mensagem': 'Demanda criada'}), 201
     except Exception as e:
         db.rollback()
@@ -134,16 +140,16 @@ def atualizar(did):
                 WHERE id=%s
             ''', (
                 int(d.get('ano') or row['ano']),
-                (d.get('secretaria') or '').strip(),
-                (d.get('municipio') or '').strip(),
-                (d.get('destinatario') or '').strip(),
-                (d.get('objeto') or '').strip(),
+                _up(d.get('secretaria')),
+                _up(d.get('municipio')),
+                _up(d.get('destinatario')),
+                _up(d.get('objeto')),
                 float(d.get('valor') or 0),
-                (d.get('proposta_fpe') or '').strip(),
+                _up(d.get('proposta_fpe')),
                 d.get('status') or 'Aguardando',
                 (d.get('observacoes') or '').strip(),
-                (d.get('convenio') or '').strip(),
-                (d.get('proa_sei') or '').strip(),
+                _up(d.get('convenio')),
+                _up(d.get('proa_sei')),
                 (d.get('data_pagto') or '').strip(),
                 datetime.now().isoformat(timespec='seconds'),
                 did,
