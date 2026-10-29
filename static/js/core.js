@@ -62,6 +62,24 @@ function chaveMun(s) {
     .toUpperCase().replace(/\s+/g, ' ').trim();
 }
 
+// Comparação genérica usada na ordenação de emendas e demandas.
+// Valores vazios ficam sempre no fim, em qualquer direção.
+function _comparar(va, vb, dir) {
+  if (va == null && vb == null) return 0;
+  if (va == null) return 1;
+  if (vb == null) return -1;
+  if (typeof va === 'number' && typeof vb === 'number') {
+    return dir === 'desc' ? vb - va : va - vb;
+  }
+  const sa = String(va).trim(), sb = String(vb).trim();
+  if (/^\d+(\.\d+)?$/.test(sa) && /^\d+(\.\d+)?$/.test(sb)) {
+    return dir === 'desc' ? parseFloat(sb) - parseFloat(sa) : parseFloat(sa) - parseFloat(sb);
+  }
+  return dir === 'desc'
+    ? sb.toLowerCase().localeCompare(sa.toLowerCase(), 'pt-BR')
+    : sa.toLowerCase().localeCompare(sb.toLowerCase(), 'pt-BR');
+}
+
 function badgeSituacao(s) {
   const cls = (s || 'Aguardando').toLowerCase().normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '-');
@@ -153,6 +171,12 @@ async function entrar(ev) {
 function sair(expirou) {
   localStorage.removeItem(CHAVE_AUTH);
   auth = null;
+  // limpa dados em memória e volta ao modo emendas
+  emendasCache = [];
+  demandasCache = [];
+  painelDados = null;
+  if ($('mostrar-demandas')) $('mostrar-demandas').checked = false;
+  if ($('mostrar-demandas-dem')) $('mostrar-demandas-dem').checked = false;
   $('user-dropdown').hidden = true;
   mostrarLogin();
   if (expirou) $('l-erro').textContent = 'Sessão expirada. Entre novamente.';
@@ -176,8 +200,7 @@ async function iniciarApp() {
     + (auth.admin ? ' · administrador' : '');
   $('menu-admin').hidden = !auth.admin;
   await carregarRegioes();
-  carregarTudo();
-  carregarFiltrosDemandas();
+  // mostrarView já carrega emendas/demandas e seus filtros
   mostrarView('emendas');
 }
 
@@ -195,6 +218,7 @@ function mostrarView(v) {
   if (v === 'lixeira') carregarLixeira();
   if (v === 'emendas') {
     const modoDemandas = $('mostrar-demandas').checked;
+    $('mostrar-demandas-dem').checked = modoDemandas;
 
     $('kpis-emendas').hidden = modoDemandas;
     $('kpis-demandas').hidden = !modoDemandas;
@@ -210,13 +234,13 @@ function mostrarView(v) {
     const btnImp = $('btn-importar-emendas');
     if (modoDemandas) {
       btnNovo.textContent = 'Nova demanda';
-      btnNovo.onclick = abrirModalDemanda;
+      btnNovo.onclick = function () { abrirModalDemanda(); };
       if (btnImp) btnImp.hidden = true;
       carregarDemandas();
       carregarFiltrosDemandas();
     } else {
       btnNovo.textContent = 'Nova emenda';
-      btnNovo.onclick = abrirModal;
+      btnNovo.onclick = function () { abrirModal(); };
       if (btnImp) btnImp.hidden = false;
       carregarEmendas();
       carregarFiltros();
@@ -224,8 +248,15 @@ function mostrarView(v) {
   }
 }
 
-function alternarDemandas() {
+// valor === false  -> desliga (usado pelo checkbox dentro dos filtros de demandas)
+// valor indefinido -> segue o checkbox dos filtros de emendas
+function alternarDemandas(valor) {
+  const ligado = (valor === false) ? false : $('mostrar-demandas').checked;
+  $('mostrar-demandas').checked = ligado;
+  $('mostrar-demandas-dem').checked = ligado;
   mostrarView('emendas');
+  // abre o painel de filtros das demandas para o usuário ver onde desligar
+  if (ligado) $('filtros-painel-demandas').hidden = false;
 }
 
 function toggleFiltros(qual) {
