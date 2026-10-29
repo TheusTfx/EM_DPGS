@@ -9,18 +9,11 @@ function debounceBusca() {
   debounceTimer = setTimeout(carregarEmendas, 300);
 }
 
-function marcarChips() {
-  const v = $('filtro-parada').value;
-  document.querySelectorAll('#chips-dias .chip').forEach(c =>
-    c.classList.toggle('on', c.dataset.d === v));
-}
-
 function limparFiltros() {
   ['busca', 'filtro-situacao', 'filtro-ano', 'filtro-municipio',
-   'filtro-secretaria', 'filtro-lider', 'filtro-regiao', 'filtro-parada']
+   'filtro-secretaria', 'filtro-lider', 'filtro-regiao']
     .forEach(id => { $(id).value = ''; });
   $('filtro-incompletos').checked = false;
-  marcarChips();
   carregarEmendas();
 }
 
@@ -34,12 +27,13 @@ async function carregarEmendas() {
   add('secretaria', 'filtro-secretaria');
   add('lider', 'filtro-lider');
   add('regiao', 'filtro-regiao');
-  add('parada_dias', 'filtro-parada');
   if ($('filtro-incompletos').checked) p.append('incompletos', '1');
   try {
     emendasCache = await api('/api/emendas?' + p);
     renderTabela();
     atualizarKPIs();
+    const btn = $('btn-filtros-emendas');
+    if (btn) btn.classList.toggle('on', _temFiltroAtivo('emendas'));
   } catch (err) {
     console.error(err);
     toast('Erro ao carregar emendas', 'error');
@@ -136,9 +130,10 @@ function renderTabela() {
 }
 
 function atualizarKPIs() {
-  $('kpi-total').textContent = emendasCache.length;
-  $('kpi-valor').textContent = fmtMoney(emendasCache.reduce((s, e) => s + (Number(e.valor_empenhado) || 0), 0));
-  $('kpi-pago').textContent = fmtMoney(emendasCache.reduce((s, e) => s + (Number(e.valor_pago) || 0), 0));
+  const aguardando = emendasCache.filter(e => e.situacao === 'Aguardando').length;
+  const pagas = emendasCache.filter(e => e.situacao === 'Pago').length;
+  $('kpi-aguardando').textContent = aguardando;
+  $('kpi-pagas').textContent = pagas;
 }
 
 // ---------- Ficha ----------
