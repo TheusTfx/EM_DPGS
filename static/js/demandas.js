@@ -28,6 +28,8 @@ async function carregarDemandas() {
     demandasCache = await api('/api/demandas?' + p);
     renderTabelaDemandas();
     atualizarKPIsDemandas();
+    const btn = $('btn-filtros-demandas');
+    if (btn) btn.classList.toggle('on', _temFiltroAtivo('demandas'));
   } catch (err) {
     console.error(err);
     toast('Erro ao carregar demandas', 'error');
