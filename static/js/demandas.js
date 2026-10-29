@@ -66,24 +66,8 @@ function sortByDem(col) {
 
 function getListaOrdenadaDem() {
   if (!sortColumnDem) return demandasCache;
-  return [...demandasCache].sort((a, b) => {
-    const va = a[sortColumnDem], vb = b[sortColumnDem];
-    if (va == null && vb == null) return 0;
-    if (va == null) return 1;
-    if (vb == null) return -1;
-    if (typeof va === 'number' && typeof vb === 'number') {
-      return sortDirectionDem === 'desc' ? vb - va : va - vb;
-    }
-    const sa = String(va).trim(), sb = String(vb).trim();
-    if (/^\d+(\.\d+)?$/.test(sa) && /^\d+(\.\d+)?$/.test(sb)) {
-      return sortDirectionDem === 'desc'
-        ? parseFloat(sb) - parseFloat(sa)
-        : parseFloat(sa) - parseFloat(sb);
-    }
-    return sortDirectionDem === 'desc'
-      ? sb.toLowerCase().localeCompare(sa.toLowerCase(), 'pt-BR')
-      : sa.toLowerCase().localeCompare(sb.toLowerCase(), 'pt-BR');
-  });
+  return [...demandasCache].sort((a, b) =>
+    _comparar(a[sortColumnDem], b[sortColumnDem], sortDirectionDem));
 }
 
 function renderTabelaDemandas() {
@@ -203,6 +187,8 @@ const CAMPOS_FORM_DEM = {
 };
 
 function abrirModalDemanda(id) {
+  // ignora argumentos que não sejam id numérico (ex.: evento de clique)
+  if (typeof id !== 'number') id = null;
   $('form-demanda').reset();
   $('d-id').value = '';
   $('d-versao').value = '';
@@ -239,6 +225,10 @@ async function salvarDemanda(ev) {
     dados[campo] = $(el).value.trim();
   });
   dados.ano = parseInt(dados.ano);
+  if (isNaN(dados.ano)) {
+    toast('Informe um ano válido', 'error');
+    return;
+  }
   dados.valor = parseFloat($('d-valor').value) || 0;
   if (id) dados.versao = parseInt($('d-versao').value) || 1;
   btn.disabled = true;
