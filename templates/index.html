@@ -33,6 +33,7 @@
     <div class="brand-title" data-nome-sistema>Controle de Emendas</div>
     <nav class="nav" id="nav">
       <button data-view="emendas" class="active">Emendas</button>
+      <button data-view="demandas">Demandas</button>
       <button data-view="painel">Painel</button>
       <button data-view="atividade">Atividade</button>
       <button data-view="lixeira">Lixeira</button>
@@ -117,6 +118,57 @@
   </section>
 </section>
 
+<!-- ================= DEMANDAS ================= -->
+<section id="view-demandas" hidden>
+  <div class="page-title">
+    <span>Demandas <small>solicitações ao estado</small></span>
+    <button class="btn btn-primary" onclick="abrirModalDemanda()">Nova demanda</button>
+  </div>
+
+  <section class="kpis">
+    <div class="kpi"><div class="kpi-label">Total de demandas</div><div class="kpi-value" id="dem-kpi-total">—</div></div>
+    <div class="kpi"><div class="kpi-label">Valor total</div><div class="kpi-value small" id="dem-kpi-valor">—</div></div>
+    <div class="kpi"><div class="kpi-label">Aprovadas</div><div class="kpi-value" id="dem-kpi-aprovadas">—</div></div>
+  </section>
+
+  <section class="toolbar">
+    <div class="toolbar-row">
+      <div class="search-wrap">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="busca-dem" placeholder="Buscar por município, destinatário, objeto, FPE, convênio..." oninput="debounceBuscaDem()">
+      </div>
+      <select class="filter-select" id="filtro-status-dem" onchange="carregarDemandas()"><option value="">Todos os status</option></select>
+      <select class="filter-select" id="filtro-ano-dem" onchange="carregarDemandas()"><option value="">Todos os anos</option></select>
+      <select class="filter-select" id="filtro-secretaria-dem" onchange="carregarDemandas()"><option value="">Todas as secretarias</option></select>
+      <select class="filter-select" id="filtro-municipio-dem" onchange="carregarDemandas()"><option value="">Todos os municípios</option></select>
+      <button class="btn btn-ghost btn-sm" onclick="limparFiltrosDem()" style="margin-left:auto;">Limpar filtros</button>
+    </div>
+  </section>
+
+  <section class="table-card">
+    <div class="table-header"><span><strong id="dem-contador">0</strong> <span id="dem-contador-label">demandas</span></span></div>
+    <div id="dem-tabela-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th class="sortable" data-sort="ano" data-scope="dem">Ano</th>
+            <th class="sortable" data-sort="secretaria" data-scope="dem">Secretaria</th>
+            <th class="sortable" data-sort="municipio" data-scope="dem">Município</th>
+            <th class="sortable" data-sort="destinatario" data-scope="dem">Destinatário</th>
+            <th class="sortable" data-sort="objeto" data-scope="dem">Objeto</th>
+            <th class="sortable right" data-sort="valor" data-scope="dem">Valor</th>
+            <th class="sortable" data-sort="proposta_fpe" data-scope="dem">Proposta FPE</th>
+            <th class="sortable" data-sort="status" data-scope="dem">Status</th>
+            <th class="right">Ações</th>
+          </tr>
+        </thead>
+        <tbody id="dem-tbody"></tbody>
+      </table>
+    </div>
+    <div class="empty" id="dem-empty" hidden><div class="empty-title">Nenhuma demanda encontrada</div><div>Ajuste os filtros ou cadastre uma nova demanda.</div></div>
+  </section>
+</section>
+
 <!-- ================= PAINEL ================= -->
 <section id="view-painel" hidden>
   <div class="page-title">
@@ -163,7 +215,7 @@
 </main>
 </div>
 
-<!-- ============================================================ MODAL: FICHA -->
+<!-- ============================================================ MODAL: FICHA EMENDA -->
 <div class="modal-overlay" id="modal-ficha">
   <div class="modal" style="max-width: 780px;">
     <div class="modal-header">
@@ -182,7 +234,7 @@
   </div>
 </div>
 
-<!-- ============================================================ MODAL: FORMULÁRIO -->
+<!-- ============================================================ MODAL: FORM EMENDA -->
 <div class="modal-overlay" id="modal-overlay">
   <div class="modal">
     <div class="modal-header">
@@ -254,6 +306,87 @@
         <button type="submit" class="btn btn-primary" id="btn-salvar">Salvar</button>
       </div>
     </form>
+  </div>
+</div>
+
+<!-- ============================================================ MODAL: DEMANDA FORM -->
+<div class="modal-overlay" id="modal-demanda">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-demanda-title">Nova demanda</div>
+      <button class="btn-icon" onclick="fecharModalDemanda()" aria-label="Fechar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <form id="form-demanda" onsubmit="salvarDemanda(event)">
+      <div class="modal-body">
+        <input type="hidden" id="d-id"><input type="hidden" id="d-versao">
+
+        <div class="form-section">
+          <div class="form-section-title">Identificação e localidade</div>
+          <div class="form-grid">
+            <div class="form-group"><label>Ano <span class="req">*</span></label><input type="number" id="d-ano" required></div>
+            <div class="form-group"><label>Secretaria (sigla)</label><input type="text" id="d-secretaria" placeholder="Ex.: SES, SEDUC, SOP"></div>
+            <div class="form-group"><label>Município</label><input type="text" id="d-municipio" list="lista-municipios"></div>
+            <div class="form-group span-2"><label>Destinatário</label><input type="text" id="d-destinatario" class="keep-case"></div>
+            <div class="form-group"><label>Status</label>
+              <select id="d-status">
+                <option>Aguardando</option>
+                <option>Enviado ao Estado</option>
+                <option>Retornada</option>
+                <option>Aprovada</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <div class="form-section-title">Objeto e valores</div>
+          <div class="form-grid">
+            <div class="form-group full"><label>Objeto</label><input type="text" id="d-objeto"></div>
+            <div class="form-group"><label>Valor (R$)</label><input type="number" step="0.01" id="d-valor"></div>
+            <div class="form-group"><label>Proposta FPE</label><input type="text" id="d-proposta-fpe"></div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <div class="form-section-title">Documentos e pagamento</div>
+          <div class="form-grid">
+            <div class="form-group"><label>Convênio</label><input type="text" id="d-convenio"></div>
+            <div class="form-group"><label>PROA / SEI</label><input type="text" id="d-proa-sei"></div>
+            <div class="form-group"><label>Data do pagamento</label><input type="date" id="d-data-pagto"></div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <div class="form-section-title">Observações</div>
+          <div class="form-grid">
+            <div class="form-group full"><textarea id="d-observacoes" class="keep-case" style="min-height:100px;"></textarea></div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="fecharModalDemanda()">Cancelar</button>
+        <button type="submit" class="btn btn-primary" id="btn-salvar-dem">Salvar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ============================================================ MODAL: DEMANDA FICHA -->
+<div class="modal-overlay" id="modal-ficha-demanda">
+  <div class="modal" style="max-width: 720px;">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="dem-ficha-titulo">Demanda</div>
+        <div style="font-size: 12px; color: var(--muted); margin-top: 2px;" id="dem-ficha-sub"></div>
+      </div>
+      <button class="btn-icon" onclick="fecharFichaDemanda()" aria-label="Fechar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body" id="dem-ficha-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-danger" onclick="excluirDaFichaDemanda()" style="margin-right:auto;">Excluir</button>
+      <button class="btn btn-secondary" onclick="fecharFichaDemanda()">Fechar</button>
+      <button class="btn btn-primary" onclick="editarDaFichaDemanda()">Editar</button>
+    </div>
   </div>
 </div>
 
