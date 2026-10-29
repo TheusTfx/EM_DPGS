@@ -7,9 +7,12 @@ const CHAVE_AUTH = 'emendas_auth';
 
 let auth = null;
 let emendasCache = [];
-let debounceTimer = null, logTimer = null;
+let demandasCache = [];
+let debounceTimer = null, logTimer = null, debounceTimerDem = null;
 let sortColumn = null, sortDirection = 'desc';
+let sortColumnDem = null, sortDirectionDem = 'desc';
 let fichaAtualId = null;
+let fichaAtualDemandaId = null;
 let regiaoEditadaManualmente = false;
 let regioesMap = {};
 let previewOk = false;
@@ -26,57 +29,52 @@ function fmtMoney(v) {
   return 'R$ ' + (Number(v) || 0).toLocaleString('pt-BR',
     { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
-
 function fmtMoneyCurto(v) {
   v = Number(v) || 0;
   if (v >= 1e6) return 'R$ ' + (v / 1e6).toLocaleString('pt-BR', { maximumFractionDigits: 2 }) + ' mi';
   if (v >= 1e3) return 'R$ ' + (v / 1e3).toLocaleString('pt-BR', { maximumFractionDigits: 0 }) + ' mil';
   return 'R$ ' + v.toLocaleString('pt-BR');
 }
-
 function escapeHTML(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g,
     c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 }
-
 function fmtNumero(n) { return String(n || '').startsWith('S/N-') ? NSC : (n || '—'); }
-
 function fmtData(d) {
   if (!d) return '—';
   const p = String(d).slice(0, 10).split('-');
   return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : d;
 }
-
 function fmtDataCurta(d) {
   if (!d) return '—';
   const p = String(d).slice(0, 10).split('-');
   return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0].slice(2) : d;
 }
-
 function fmtDataHora(iso) {
   if (!iso) return '';
   return new Date(iso).toLocaleString('pt-BR',
     { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit',
       year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
-
 function chaveMun(s) {
   return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .toUpperCase().replace(/\s+/g, ' ').trim();
 }
-
 function badgeSituacao(s) {
   const cls = (s || 'Aguardando').toLowerCase().normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '-');
   return '<span class="status status-' + cls + '">' + escapeHTML(s || 'Aguardando') + '</span>';
 }
-
+function badgeStatusDemanda(s) {
+  const cls = (s || 'Aguardando').toLowerCase().normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '-');
+  return '<span class="status status-' + cls + '">' + escapeHTML(s || 'Aguardando') + '</span>';
+}
 function diasHTML(d) {
   if (d == null) return '<span class="faint">—</span>';
   const cls = d >= 60 ? 'critico' : d >= 30 ? 'alerta' : '';
   return '<span class="dias ' + cls + '">' + d + (d === 1 ? ' dia' : ' dias') + '</span>';
 }
-
 function icone(path) {
   return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + path + '</svg>';
 }
@@ -178,6 +176,7 @@ async function iniciarApp() {
   $('menu-admin').hidden = !auth.admin;
   await carregarRegioes();
   carregarTudo();
+  carregarFiltrosDemandas();
   mostrarView('emendas');
 }
 
@@ -185,12 +184,13 @@ async function iniciarApp() {
 // NAVEGAÇÃO
 // ============================================================
 function mostrarView(v) {
-  ['emendas', 'painel', 'atividade', 'lixeira'].forEach(n => {
+  ['emendas', 'demandas', 'painel', 'atividade', 'lixeira'].forEach(n => {
     $('view-' + n).hidden = (n !== v);
   });
   document.querySelectorAll('#nav button').forEach(b => {
     b.classList.toggle('active', b.dataset.view === v);
   });
+  if (v === 'demandas') carregarDemandas();
   if (v === 'painel') carregarPainel();
   if (v === 'atividade') carregarLogs(true);
   if (v === 'lixeira') carregarLixeira();
@@ -221,7 +221,7 @@ function configurarAutoRegiao() {
 }
 
 // ============================================================
-// LISTAGEM
+// LISTAGEM EMENDAS
 // ============================================================
 function debounceBusca() {
   clearTimeout(debounceTimer);
@@ -296,6 +296,7 @@ function sortBy(col) {
   if (sortColumn === col) sortDirection = sortDirection === 'desc' ? 'asc' : 'desc';
   else { sortColumn = col; sortDirection = 'desc'; }
   document.querySelectorAll('thead th.sortable').forEach(th => {
+    if (th.dataset.scope === 'dem') return;
     th.classList.remove('sorted-asc', 'sorted-desc');
     if (th.dataset.sort === sortColumn) {
       th.classList.add(sortDirection === 'desc' ? 'sorted-desc' : 'sorted-asc');
@@ -360,7 +361,7 @@ function atualizarKPIs() {
 }
 
 // ============================================================
-// FICHA
+// FICHA EMENDA
 // ============================================================
 async function abrirFichaPorId(id) {
   if (!emendasCache.find(x => x.id === id)) {
@@ -433,7 +434,7 @@ async function excluirDaFicha() {
 }
 
 // ============================================================
-// FORMULÁRIO
+// FORMULÁRIO EMENDA
 // ============================================================
 const CAMPOS_FORM = {
   'f-numero': 'numero_emenda', 'f-ano': 'ano', 'f-secretaria': 'secretaria',
@@ -514,6 +515,279 @@ async function excluirEmenda(id) {
     await api('/api/emendas/' + id, { method: 'DELETE' });
     toast('Emenda movida para a lixeira');
     carregarTudo();
+    return true;
+  } catch (err) {
+    toast(err.message, 'error');
+    return false;
+  }
+}
+
+// ============================================================
+// DEMANDAS
+// ============================================================
+function debounceBuscaDem() {
+  clearTimeout(debounceTimerDem);
+  debounceTimerDem = setTimeout(carregarDemandas, 300);
+}
+
+function limparFiltrosDem() {
+  ['busca-dem', 'filtro-status-dem', 'filtro-ano-dem',
+   'filtro-secretaria-dem', 'filtro-municipio-dem']
+    .forEach(id => { $(id).value = ''; });
+  carregarDemandas();
+}
+
+async function carregarDemandas() {
+  const p = new URLSearchParams();
+  const add = (k, id) => { const v = $(id).value.trim(); if (v) p.append(k, v); };
+  add('q', 'busca-dem');
+  add('status', 'filtro-status-dem');
+  add('ano', 'filtro-ano-dem');
+  add('secretaria', 'filtro-secretaria-dem');
+  add('municipio', 'filtro-municipio-dem');
+  try {
+    demandasCache = await api('/api/demandas?' + p);
+    renderTabelaDemandas();
+    atualizarKPIsDemandas();
+  } catch (err) {
+    console.error(err);
+    toast('Erro ao carregar demandas', 'error');
+  }
+}
+
+async function carregarFiltrosDemandas() {
+  try {
+    const f = await api('/api/filtros-demandas');
+    const preencher = (id, rotulo, itens) => {
+      const el = $(id), atual = el.value;
+      el.innerHTML = '<option value="">' + rotulo + '</option>' +
+        itens.map(s => '<option>' + escapeHTML(s) + '</option>').join('');
+      if (itens.map(String).includes(atual)) el.value = atual;
+    };
+    preencher('filtro-status-dem', 'Todos os status', f.status);
+    preencher('filtro-ano-dem', 'Todos os anos', f.anos);
+    preencher('filtro-secretaria-dem', 'Todas as secretarias', f.secretarias);
+    preencher('filtro-municipio-dem', 'Todos os municípios', f.municipios);
+  } catch (err) { console.error(err); }
+}
+
+function sortByDem(col) {
+  if (sortColumnDem === col) sortDirectionDem = sortDirectionDem === 'desc' ? 'asc' : 'desc';
+  else { sortColumnDem = col; sortDirectionDem = 'desc'; }
+  document.querySelectorAll('th[data-scope="dem"].sortable').forEach(th => {
+    th.classList.remove('sorted-asc', 'sorted-desc');
+    if (th.dataset.sort === sortColumnDem) {
+      th.classList.add(sortDirectionDem === 'desc' ? 'sorted-desc' : 'sorted-asc');
+    }
+  });
+  renderTabelaDemandas();
+}
+
+function getListaOrdenadaDem() {
+  if (!sortColumnDem) return demandasCache;
+  return [...demandasCache].sort((a, b) => {
+    const va = a[sortColumnDem], vb = b[sortColumnDem];
+    if (va == null && vb == null) return 0;
+    if (va == null) return 1;
+    if (vb == null) return -1;
+    if (typeof va === 'number' && typeof vb === 'number') {
+      return sortDirectionDem === 'desc' ? vb - va : va - vb;
+    }
+    const sa = String(va).trim(), sb = String(vb).trim();
+    if (/^\d+(\.\d+)?$/.test(sa) && /^\d+(\.\d+)?$/.test(sb)) {
+      return sortDirectionDem === 'desc'
+        ? parseFloat(sb) - parseFloat(sa)
+        : parseFloat(sa) - parseFloat(sb);
+    }
+    return sortDirectionDem === 'desc'
+      ? sb.toLowerCase().localeCompare(sa.toLowerCase(), 'pt-BR')
+      : sa.toLowerCase().localeCompare(sb.toLowerCase(), 'pt-BR');
+  });
+}
+
+function renderTabelaDemandas() {
+  const tbody = $('dem-tbody'), lista = getListaOrdenadaDem();
+  $('dem-contador').textContent = lista.length;
+  $('dem-contador-label').textContent = lista.length === 1 ? 'demanda' : 'demandas';
+  $('dem-tabela-wrap').hidden = lista.length === 0;
+  $('dem-empty').hidden = lista.length !== 0;
+  tbody.innerHTML = '';
+  lista.forEach(d => {
+    const tr = document.createElement('tr');
+    tr.addEventListener('click', () => abrirFichaDemanda(d.id));
+    tr.innerHTML =
+      '<td><div class="cell-main">' + escapeHTML(d.ano) + '</div></td>' +
+      '<td><div class="cell-main">' + escapeHTML(d.secretaria || '—') + '</div></td>' +
+      '<td><div class="cell-main">' + escapeHTML(d.municipio || '—') + '</div></td>' +
+      '<td><div class="cell-main">' + escapeHTML(d.destinatario || '—') + '</div></td>' +
+      '<td class="cell-obj" title="' + escapeHTML(d.objeto || '') + '"><div class="cell-main">' + escapeHTML(d.objeto || '—') + '</div></td>' +
+      '<td class="cell-value">' + fmtMoney(d.valor) + '</td>' +
+      '<td><div class="cell-main">' + escapeHTML(d.proposta_fpe || '—') + '</div></td>' +
+      '<td>' + badgeStatusDemanda(d.status) + '</td>' +
+      '<td class="cell-actions"><div class="row-actions">' +
+        '<button class="btn-icon" onclick="event.stopPropagation(); abrirModalDemanda(' + d.id + ')" title="Editar">' + icone(ICO_EDIT) + '</button>' +
+        '<button class="btn-icon danger" onclick="event.stopPropagation(); excluirDemanda(' + d.id + ')" title="Excluir">' + icone(ICO_DEL) + '</button>' +
+      '</div></td>';
+    tbody.appendChild(tr);
+  });
+}
+
+function atualizarKPIsDemandas() {
+  $('dem-kpi-total').textContent = demandasCache.length;
+  $('dem-kpi-valor').textContent = fmtMoney(
+    demandasCache.reduce((s, d) => s + (Number(d.valor) || 0), 0));
+  const aprovadas = demandasCache.filter(d => d.status === 'Aprovada').length;
+  $('dem-kpi-aprovadas').textContent = aprovadas;
+}
+
+async function abrirFichaDemandaPorId(id) {
+  if (!demandasCache.find(x => x.id === id)) {
+    try { demandasCache.push(await api('/api/demandas/' + id)); }
+    catch (err) {
+      toast('Demanda não encontrada', 'error');
+      return;
+    }
+  }
+  abrirFichaDemanda(id);
+}
+
+async function abrirFichaDemanda(id) {
+  const d = demandasCache.find(x => x.id === id);
+  if (!d) return;
+  fichaAtualDemandaId = id;
+  $('dem-ficha-titulo').textContent = 'Demanda ' + (d.ano || '');
+  $('dem-ficha-sub').textContent = (d.secretaria || '—')
+    + ' · ' + (d.municipio || '—')
+    + (d.destinatario ? ' · ' + d.destinatario : '');
+  $('dem-ficha-body').innerHTML =
+    '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px;">' +
+      badgeStatusDemanda(d.status) + '</div>' +
+    '<div class="ficha-section"><div class="ficha-section-title">Identificação</div><div class="ficha-grid">' +
+      campoFicha('Ano', d.ano) +
+      campoFicha('Secretaria', d.secretaria) +
+      campoFicha('Status', d.status) + '</div></div>' +
+    '<div class="ficha-section"><div class="ficha-section-title">Localidade</div><div class="ficha-grid">' +
+      campoFicha('Município', d.municipio) +
+      campoFicha('Destinatário', d.destinatario, { full: true }) + '</div></div>' +
+    '<div class="ficha-section"><div class="ficha-section-title">Objeto e valores</div><div class="ficha-grid">' +
+      campoFicha('Objeto', d.objeto, { full: true }) +
+      '<div class="ficha-field"><label>Valor</label><div style="font-weight:600;">' + fmtMoney(d.valor) + '</div></div>' +
+      campoFicha('Proposta FPE', d.proposta_fpe) + '</div></div>' +
+    '<div class="ficha-section"><div class="ficha-section-title">Documentos e pagamento</div><div class="ficha-grid">' +
+      campoFicha('Convênio', d.convenio) +
+      campoFicha('PROA / SEI', d.proa_sei) +
+      campoFicha('Data do pagamento', d.data_pagto ? fmtData(d.data_pagto) : '') + '</div></div>' +
+    (d.observacoes
+      ? '<div class="ficha-section"><div class="ficha-section-title">Observações</div>' +
+        campoFicha('', d.observacoes, { full: true, pre: true }) + '</div>'
+      : '') +
+    '<div class="ficha-section"><div class="ficha-section-title">Histórico</div>' +
+      '<div class="hist-mini" id="dem-ficha-hist"><span class="hint">Carregando...</span></div></div>';
+  $('modal-ficha-demanda').classList.add('open');
+  try {
+    const r = await api('/api/logs?demanda_id=' + id + '&limite=15');
+    $('dem-ficha-hist').innerHTML = r.itens.length
+      ? r.itens.map(l => logItemHTML(l, false)).join('')
+      : '<span class="hint">Nenhuma alteração registrada.</span>';
+  } catch (err) {
+    $('dem-ficha-hist').innerHTML = '<span class="hint">Não foi possível carregar o histórico.</span>';
+  }
+}
+
+function fecharFichaDemanda() { $('modal-ficha-demanda').classList.remove('open'); }
+function editarDaFichaDemanda() {
+  const id = fichaAtualDemandaId;
+  fecharFichaDemanda();
+  if (id) abrirModalDemanda(id);
+}
+async function excluirDaFichaDemanda() {
+  const id = fichaAtualDemandaId;
+  if (id && await excluirDemanda(id)) fecharFichaDemanda();
+}
+
+const CAMPOS_FORM_DEM = {
+  'd-ano': 'ano',
+  'd-secretaria': 'secretaria',
+  'd-municipio': 'municipio',
+  'd-destinatario': 'destinatario',
+  'd-objeto': 'objeto',
+  'd-proposta-fpe': 'proposta_fpe',
+  'd-status': 'status',
+  'd-observacoes': 'observacoes',
+  'd-convenio': 'convenio',
+  'd-proa-sei': 'proa_sei',
+  'd-data-pagto': 'data_pagto',
+};
+
+function abrirModalDemanda(id) {
+  $('form-demanda').reset();
+  $('d-id').value = '';
+  $('d-versao').value = '';
+  $('d-ano').value = new Date().getFullYear();
+  $('d-status').value = 'Aguardando';
+  $('modal-demanda-title').textContent = id ? 'Editar demanda' : 'Nova demanda';
+  if (id) {
+    const d = demandasCache.find(x => x.id === id);
+    if (d) {
+      $('d-id').value = d.id;
+      $('d-versao').value = d.versao || 1;
+      Object.entries(CAMPOS_FORM_DEM).forEach(([el, campo]) => {
+        $(el).value = (d[campo] == null)
+          ? ''
+          : String(d[campo]).slice(0, campo === 'data_pagto' ? 10 : undefined);
+      });
+      $('d-valor').value = d.valor || '';
+      $('d-status').value = d.status || 'Aguardando';
+    }
+  }
+  $('modal-demanda').classList.add('open');
+  setTimeout(() => $('d-ano').focus(), 100);
+}
+
+function fecharModalDemanda() { $('modal-demanda').classList.remove('open'); }
+
+async function salvarDemanda(ev) {
+  ev.preventDefault();
+  const btn = $('btn-salvar-dem');
+  if (btn.disabled) return;
+  const id = $('d-id').value;
+  const dados = {};
+  Object.entries(CAMPOS_FORM_DEM).forEach(([el, campo]) => {
+    dados[campo] = $(el).value.trim();
+  });
+  dados.ano = parseInt(dados.ano);
+  dados.valor = parseFloat($('d-valor').value) || 0;
+  if (id) dados.versao = parseInt($('d-versao').value) || 1;
+  btn.disabled = true; btn.textContent = 'Salvando...';
+  let sucesso = false, msg = 'Erro ao salvar demanda', tipo = 'error';
+  try {
+    await api(id ? '/api/demandas/' + id : '/api/demandas',
+      { method: id ? 'PUT' : 'POST', json: dados });
+    sucesso = true;
+    msg = id ? 'Demanda atualizada' : 'Demanda criada';
+    tipo = 'success';
+  } catch (err) {
+    msg = err.status === 409
+      ? 'Esta demanda foi alterada por outro usuário. Recarregue a página.'
+      : err.message;
+  } finally {
+    btn.disabled = false; btn.textContent = 'Salvar';
+  }
+  if (sucesso) fecharModalDemanda();
+  toast(msg, tipo);
+  if (sucesso) {
+    carregarDemandas();
+    carregarFiltrosDemandas();
+  }
+}
+
+async function excluirDemanda(id) {
+  if (!confirm('Excluir esta demanda? Esta ação não pode ser desfeita.')) return false;
+  try {
+    await api('/api/demandas/' + id, { method: 'DELETE' });
+    toast('Demanda excluída');
+    carregarDemandas();
+    carregarFiltrosDemandas();
     return true;
   } catch (err) {
     toast(err.message, 'error');
@@ -614,354 +888,4 @@ function renderPainel() {
 
   const tempoHTML = t.n
     ? '<div class="big-nums"><div><div class="n">' + Math.round(t.media) + '</div><div class="l">dias em média</div></div>' +
-      '<div><div class="n">' + Math.round(t.mediana) + '</div><div class="l">dias (mediana)</div></div>' +
-      '<div><div class="n">' + t.minimo + ' – ' + t.maximo + '</div><div class="l">menor e maior prazo</div></div>' +
-      '<div><div class="n">' + t.n + '</div><div class="l">pagamentos medidos</div></div></div>' +
-      (d.tempo_secretaria.length ? '<div class="ficha-sub" style="margin-top:6px;">Média de dias por secretaria</div>' + barras(d.tempo_secretaria.map(i => ({ nome: i.nome, n: Math.round(i.media), q: i.n })), { campo: 'n', fmt: (v, i) => v + ' d <span class="faint">(' + i.q + ')</span>' }) : '')
-    : '<div class="sem-dados">Ainda não há pagamentos com data registrada. O prazo é medido da data de entrada (ou do cadastro no sistema) até a data do pagamento. Ele passa a ser calculado conforme as emendas são pagas ou quando a data do pagamento é informada na emenda.</div>';
-
-  $('painel-cards').innerHTML =
-    '<div class="card"><div class="card-head"><div class="card-title">Situação das emendas</div></div>' + donut(d.por_situacao) + '</div>' +
-    '<div class="card"><div class="card-head"><div class="card-title">Emendas em aberto por tempo sem movimento</div></div>' + barras(d.faixas_paradas, { campo: 'n' }) +
-      '<div class="card-note">Conta a partir da última data citada na situação da planilha ou da última alteração feita no sistema.</div></div>' +
-    cardRanking('lider', 'Quem mais lidera', d) + cardRanking('municipio', 'Para onde mais é enviado (município)', d) +
-    cardRanking('regiao', 'Regiões', d) + cardRanking('secretaria', 'Secretarias', d) +
-    '<div class="card"><div class="card-head"><div class="card-title">Objetos mais frequentes</div></div>' + barras(d.objeto_n, { campo: 'n' }) + '</div>' +
-    '<div class="card"><div class="card-head"><div class="card-title">Tempo até o pagamento</div></div>' + tempoHTML + '</div>' +
-    '<div class="card wide"><div class="card-head"><div class="card-title">Valor pago por mês</div></div>' + colunas(d.pagamentos_mes) + '</div>' +
-    '<div class="card wide"><div class="card-head"><div class="card-title">Comparativo por ano</div></div>' +
-      barras(d.por_ano.map(i => ({ nome: i.nome + ' — ' + i.n + ' emendas', valor: i.valor, pago: i.pago })), { campo: 'valor', fmt: (v, i) => fmtMoneyCurto(v) + ' <span class="faint">(pago ' + fmtMoneyCurto(i.pago) + ')</span>' }) + '</div>';
-}
-
-// ============================================================
-// ATIVIDADE (LOGS)
-// ============================================================
-const ROTULO_ACAO = {
-  criou: 'Criação', editou: 'Edição', excluiu: 'Exclusão',
-  restaurou: 'Restauração', importou: 'Importação',
-  'regiões': 'Regiões', 'usuário': 'Usuários'
-};
-
-function logItemHTML(l, mostrarEmenda) {
-  const mud = (l.mudancas || []).map(m =>
-    '<div><b>' + escapeHTML(m.campo) + ':</b> ' + (m.de ? '<span class="de">' + escapeHTML(m.de) + '</span> → ' : '') + escapeHTML(m.para || '(vazio)') + '</div>'
-  ).join('');
-  const emenda = l.numero_emenda
-    ? (l.emenda_id && mostrarEmenda
-        ? '<a onclick="abrirFichaPorId(' + l.emenda_id + ')">Emenda ' + escapeHTML(fmtNumero(l.numero_emenda)) + '</a>'
-        : 'Emenda ' + escapeHTML(fmtNumero(l.numero_emenda))) +
-      (l.municipio ? ' · ' + escapeHTML(l.municipio) : '') + (l.ano ? ' · ' + l.ano : '')
-    : '';
-  const quando = '<div class="log-when">' + escapeHTML(fmtDataHora(l.criado_em)) + '<br><span class="log-who">' + escapeHTML(l.usuario || 'sistema') + '</span></div>';
-  const corpo = '<div><div class="log-head"><span class="log-acao ' + escapeHTML(l.acao) + '">' + escapeHTML(ROTULO_ACAO[l.acao] || l.acao) + '</span>' +
-    (mostrarEmenda ? emenda : '') + (l.detalhe ? (mostrarEmenda && emenda ? ' — ' : '') + escapeHTML(l.detalhe) : '') + '</div>' +
-    (mud ? '<div class="log-mud">' + mud + '</div>' : '') + '</div>';
-  return mostrarEmenda
-    ? '<div class="log-item">' + quando + corpo + '</div>'
-    : '<div class="log-item"><div class="log-when">' + escapeHTML(fmtDataHora(l.criado_em)) + ' · <span class="log-who">' + escapeHTML(l.usuario || 'sistema') + '</span></div>' + corpo + '</div>';
-}
-
-function debounceLogs() {
-  clearTimeout(logTimer);
-  logTimer = setTimeout(() => carregarLogs(true), 300);
-}
-
-async function carregarLogs(reiniciar) {
-  if (reiniciar) { logsOffset = 0; $('log-list').innerHTML = ''; }
-  const p = new URLSearchParams({ limite: 50, offset: logsOffset });
-  if ($('log-busca').value.trim()) p.append('q', $('log-busca').value.trim());
-  if ($('log-usuario').value) p.append('usuario', $('log-usuario').value);
-  if ($('log-acao').value) p.append('acao', $('log-acao').value);
-  try {
-    const r = await api('/api/logs?' + p);
-    const sel = $('log-usuario'), atual = sel.value;
-    sel.innerHTML = '<option value="">Todos os usuários</option>' +
-      r.usuarios.map(u => '<option>' + escapeHTML(u) + '</option>').join('');
-    sel.value = atual;
-    $('log-list').insertAdjacentHTML('beforeend', r.itens.map(l => logItemHTML(l, true)).join(''));
-    logsOffset += r.itens.length;
-    if (!$('log-list').children.length) {
-      $('log-list').innerHTML = '<div class="empty"><div class="empty-title">Nenhuma atividade encontrada</div></div>';
-    }
-    $('log-mais').hidden = logsOffset >= r.total;
-  } catch (err) { toast(err.message, 'error'); }
-}
-
-// ============================================================
-// LIXEIRA
-// ============================================================
-async function carregarLixeira() {
-  try {
-    const lista = await api('/api/lixeira');
-    $('empty-lixeira').hidden = lista.length !== 0;
-    $('tbody-lixeira').innerHTML = lista.map(i => {
-      const d = i.dados || {};
-      return '<tr style="cursor:default;"><td>' + escapeHTML(fmtDataHora(i.excluida_em)) + '</td><td>' + escapeHTML(i.excluida_por || '—') + '</td>' +
-        '<td><div class="cell-main">' + escapeHTML(fmtNumero(d.numero_emenda)) + '</div><div class="cell-sub">' + escapeHTML(d.ano) + '</div></td>' +
-        '<td>' + escapeHTML(d.municipio || '—') + '</td><td>' + escapeHTML(d.entidade || '—') + '</td>' +
-        '<td class="cell-value">' + fmtMoney(d.valor_empenhado) + '</td>' +
-        '<td class="right" style="white-space:nowrap;"><button class="btn btn-secondary btn-sm" onclick="restaurarItem(' + i.id + ')">Restaurar</button>' +
-        (auth.admin ? ' <button class="btn btn-danger btn-sm" onclick="excluirDefinitivo(' + i.id + ')">Excluir definitivamente</button>' : '') + '</td></tr>';
-    }).join('');
-  } catch (err) { toast(err.message, 'error'); }
-}
-
-async function restaurarItem(id) {
-  try {
-    await api('/api/lixeira/' + id + '/restaurar', { method: 'POST' });
-    toast('Emenda restaurada');
-    carregarLixeira();
-    carregarTudo();
-  } catch (err) { toast(err.message, 'error'); }
-}
-
-async function excluirDefinitivo(id) {
-  if (!confirm('Excluir definitivamente? Esta ação não pode ser desfeita.')) return;
-  try {
-    await api('/api/lixeira/' + id, { method: 'DELETE' });
-    toast('Excluída definitivamente');
-    carregarLixeira();
-  } catch (err) { toast(err.message, 'error'); }
-}
-
-// ============================================================
-// IMPORTAÇÃO
-// ============================================================
-function abrirModalImportar() {
-  $('imp-arquivo').value = '';
-  resetarPreview();
-  $('modal-importar').classList.add('open');
-}
-function fecharModalImportar() { $('modal-importar').classList.remove('open'); }
-function resetarPreview() {
-  previewOk = false;
-  $('btn-importar').disabled = true;
-  $('imp-preview').innerHTML = '';
-}
-
-function listaMudancas(itens) {
-  return itens.map(i =>
-    '<div class="it"><b>' + escapeHTML(fmtNumero(i.numero)) + '</b> · ' + escapeHTML(i.municipio) + (i.ano ? ' · ' + i.ano : '') +
-    (i.mudancas || []).map(m => '<div style="color:var(--muted);">' + escapeHTML(m.campo) + ': ' + (m.de ? '<span style="text-decoration:line-through;color:var(--faint);">' + escapeHTML(m.de) + '</span> → ' : '') + escapeHTML(m.para || '(vazio)') + '</div>').join('') + '</div>'
-  ).join('');
-}
-
-function blocoImport(chave, v) {
-  if (v.tipo === 'contatos') {
-    return '<div class="imp-bloco"><div class="imp-bloco-h">Contatos (aba ENTIDADES)</div><div class="imp-bloco-b">' +
-      '<b>' + v.encontradas + '</b> entidades localizadas · <b>' + v.alteradas + '</b> emendas com contatos novos ou alterados' +
-      (v.n_nao_encontradas ? ' · <span style="color:var(--warn);">' + v.n_nao_encontradas + ' sem correspondência</span>' : '') +
-      (v.lista_alteradas.length ? '<details><summary>Ver alterações</summary><div class="imp-lista">' + listaMudancas(v.lista_alteradas) + '</div></details>' : '') +
-      (v.nao_encontradas.length ? '<details><summary>Ver entidades sem correspondência</summary><div class="imp-lista">' + v.nao_encontradas.map(n => '<div class="it">' + escapeHTML(n) + '</div>').join('') + '</div></details>' : '') + '</div></div>';
-  }
-  const nc = Object.entries(v.nao_consta || {}).map(([k, n]) => k + ': ' + n).join(' · ');
-  return '<div class="imp-bloco"><div class="imp-bloco-h">Aba ' + chave + ' · ' + v.total_linhas + ' linhas</div><div class="imp-bloco-b">' +
-    '<span class="tag nova">' + v.novas + ' novas</span><span class="tag alt">' + v.alteradas + ' alteradas</span><span class="tag">' + v.iguais + ' sem alteração</span>' +
-    (v.ignoradas ? '<span class="tag">' + v.ignoradas + ' ignoradas</span>' : '') +
-    '<div style="margin-top:6px;color:var(--muted);">' + v.pagas + ' pagas · ' + v.aguardando + ' aguardando' + (v.sem_numero ? ' · ' + v.sem_numero + ' sem nº na planilha' : '') + '</div>' +
-    (nc ? '<div class="hint" style="margin-top:4px;">Campos sem informação ("não consta na planilha"): ' + escapeHTML(nc) + '</div>' : '') +
-    (v.exemplos_novas.length ? '<details><summary>Ver exemplos de emendas novas</summary><div class="imp-lista">' + v.exemplos_novas.map(n => '<div class="it"><b>' + escapeHTML(fmtNumero(n.numero)) + '</b> · ' + escapeHTML(n.municipio) + ' · ' + fmtMoney(n.valor) + '</div>').join('') + '</div></details>' : '') +
-    (v.lista_alteradas.length ? '<details><summary>Ver alterações (' + v.alteradas + (v.alteradas > v.lista_alteradas.length ? ', mostrando ' + v.lista_alteradas.length : '') + ')</summary><div class="imp-lista">' + listaMudancas(v.lista_alteradas) + '</div></details>' : '') +
-    '</div></div>';
-}
-
-async function chamarImportacao(rota) {
-  const arquivo = $('imp-arquivo').files[0];
-  if (!arquivo) { toast('Selecione um arquivo', 'error'); return null; }
-  const fd = new FormData();
-  fd.append('arquivo', arquivo);
-  fd.append('aba', $('imp-aba').value);
-  return api(rota, { method: 'POST', body: fd });
-}
-
-async function previewImportar() {
-  const box = $('imp-preview');
-  resetarPreview();
-  if (!$('imp-arquivo').files[0]) { toast('Selecione um arquivo', 'error'); return; }
-  box.innerHTML = '<span class="hint">Lendo planilha…</span>';
-  $('btn-preview').disabled = true;
-  try {
-    const data = await chamarImportacao('/api/importar/preview');
-    const abas = data.abas, chaves = Object.keys(abas);
-    box.innerHTML = chaves.map(k => blocoImport(k, abas[k])).join('');
-    const mudancas = chaves.reduce((s, k) => s + (abas[k].novas || 0) + (abas[k].alteradas || 0), 0);
-    previewOk = true;
-    $('btn-importar').disabled = false;
-    if (!mudancas) box.insertAdjacentHTML('afterbegin', '<div class="hint" style="margin-top:8px;">Nenhuma diferença em relação ao que já está no sistema.</div>');
-  } catch (err) {
-    box.innerHTML = '<span style="color:var(--bad);">' + escapeHTML(err.message) + '</span>';
-  } finally {
-    $('btn-preview').disabled = false;
-  }
-}
-
-async function executarImportar() {
-  if (!previewOk) { toast('Faça a pré-visualização antes de importar', 'error'); return; }
-  if (!confirm('Aplicar as alterações mostradas na pré-visualização?')) return;
-  const btn = $('btn-importar');
-  btn.disabled = true;
-  btn.textContent = 'Importando…';
-  try {
-    const data = await chamarImportacao('/api/importar');
-    toast(data.importadas + ' emendas novas ou atualizadas');
-    fecharModalImportar();
-    carregarTudo();
-    carregarRegioes();
-  } catch (err) {
-    toast('Falha: ' + err.message, 'error');
-  } finally {
-    btn.textContent = 'Importar';
-    btn.disabled = !previewOk;
-  }
-}
-
-// ============================================================
-// USUÁRIOS, SENHA E REGIÕES
-// ============================================================
-function abrirSenha() {
-  ['s-atual', 's-nova', 's-nova2'].forEach(i => { $(i).value = ''; });
-  $('modal-senha').classList.add('open');
-}
-function fecharSenha() { $('modal-senha').classList.remove('open'); }
-async function salvarSenha() {
-  if ($('s-nova').value !== $('s-nova2').value) {
-    toast('As senhas novas não conferem', 'error');
-    return;
-  }
-  try {
-    await api('/api/senha', {
-      method: 'PUT',
-      json: { atual: $('s-atual').value, nova: $('s-nova').value }
-    });
-    toast('Senha alterada');
-    fecharSenha();
-  } catch (err) { toast(err.message, 'error'); }
-}
-
-async function abrirUsuarios() {
-  $('modal-usuarios').classList.add('open');
-  ['u-nome', 'u-usuario', 'u-senha'].forEach(i => { $(i).value = ''; });
-  $('u-admin').checked = false;
-  await carregarUsuarios();
-}
-function fecharUsuarios() { $('modal-usuarios').classList.remove('open'); }
-
-async function carregarUsuarios() {
-  try {
-    const lista = await api('/api/usuarios');
-    $('tbody-usuarios').innerHTML = lista.map(u =>
-      '<tr style="cursor:default;"><td>' + escapeHTML(u.nome) + '</td><td>' + escapeHTML(u.usuario) + '</td><td>' + (u.admin ? 'Administrador' : 'Usuário') + '</td>' +
-      '<td class="right" style="white-space:nowrap;"><button class="btn btn-secondary btn-sm" onclick="redefinirSenha(' + u.id + ')">Redefinir senha</button>' +
-      (u.id !== auth.id && u.usuario !== auth.usuario ? ' <button class="btn btn-danger btn-sm" onclick="removerUsuario(' + u.id + ')">Remover</button>' : '') + '</td></tr>'
-    ).join('');
-  } catch (err) { toast(err.message, 'error'); }
-}
-
-async function criarUsuario() {
-  try {
-    await api('/api/usuarios', {
-      method: 'POST',
-      json: {
-        nome: $('u-nome').value,
-        usuario: $('u-usuario').value,
-        senha: $('u-senha').value,
-        admin: $('u-admin').checked
-      }
-    });
-    toast('Usuário criado');
-    ['u-nome', 'u-usuario', 'u-senha'].forEach(i => { $(i).value = ''; });
-    $('u-admin').checked = false;
-    carregarUsuarios();
-  } catch (err) { toast(err.message, 'error'); }
-}
-
-async function redefinirSenha(id) {
-  const nova = prompt('Nova senha para este usuário (mínimo 6 caracteres):');
-  if (!nova) return;
-  try {
-    await api('/api/usuarios/' + id + '/senha', { method: 'PUT', json: { nova } });
-    toast('Senha redefinida');
-  } catch (err) { toast(err.message, 'error'); }
-}
-
-async function removerUsuario(id) {
-  if (!confirm('Remover este usuário?')) return;
-  try {
-    await api('/api/usuarios/' + id, { method: 'DELETE' });
-    toast('Usuário removido');
-    carregarUsuarios();
-  } catch (err) { toast(err.message, 'error'); }
-}
-
-function abrirRegioes() {
-  $('reg-arquivo').value = '';
-  $('reg-info').textContent = Object.keys(regioesMap).length + ' municípios cadastrados atualmente.';
-  $('modal-regioes').classList.add('open');
-}
-function fecharRegioes() { $('modal-regioes').classList.remove('open'); }
-
-async function enviarRegioes() {
-  const arq = $('reg-arquivo').files[0];
-  if (!arq) { toast('Selecione um arquivo', 'error'); return; }
-  const fd = new FormData();
-  fd.append('arquivo', arq);
-  try {
-    const r = await api('/api/regioes/importar', { method: 'POST', body: fd });
-    toast(r.municipios + ' municípios importados; ' + r.emendas_atualizadas + ' emendas atualizadas');
-    await carregarRegioes();
-    carregarTudo();
-    fecharRegioes();
-  } catch (err) { toast(err.message, 'error'); }
-}
-
-// ============================================================
-// INICIALIZAÇÃO
-// ============================================================
-function setupOverlayClose(overlayEl, closeFn) {
-  let downOnOverlay = false;
-  const setDown = e => { downOnOverlay = (e.target === overlayEl); };
-  overlayEl.addEventListener('mousedown', setDown);
-  overlayEl.addEventListener('touchstart', setDown, { passive: true });
-  overlayEl.addEventListener('click', e => {
-    if (downOnOverlay && e.target === overlayEl) closeFn();
-    downOnOverlay = false;
-  });
-}
-
-document.addEventListener('DOMContentLoaded', function () {
-  document.title = NOME_SISTEMA;
-  document.querySelectorAll('[data-nome-sistema]').forEach(el => { el.textContent = NOME_SISTEMA; });
-  configurarAutoRegiao();
-
-  document.querySelectorAll('thead th.sortable').forEach(th =>
-    th.addEventListener('click', () => sortBy(th.dataset.sort)));
-  document.querySelectorAll('#nav button').forEach(b =>
-    b.addEventListener('click', () => mostrarView(b.dataset.view)));
-  document.querySelectorAll('#chips-dias .chip').forEach(c =>
-    c.addEventListener('click', () => {
-      $('filtro-parada').value = ($('filtro-parada').value === c.dataset.d) ? '' : c.dataset.d;
-      marcarChips();
-      carregarEmendas();
-    }));
-
-  setupOverlayClose($('modal-overlay'), fecharModal);
-  setupOverlayClose($('modal-ficha'), fecharFicha);
-  setupOverlayClose($('modal-importar'), fecharModalImportar);
-  setupOverlayClose($('modal-usuarios'), fecharUsuarios);
-  setupOverlayClose($('modal-senha'), fecharSenha);
-  setupOverlayClose($('modal-regioes'), fecharRegioes);
-
-  $('form-emenda').addEventListener('keydown', e => {
-    if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') e.preventDefault();
-  });
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') {
-      fecharModal(); fecharFicha(); fecharModalImportar();
-      fecharUsuarios(); fecharSenha(); fecharRegioes();
-    }
-  });
-
-  try { auth = JSON.parse(localStorage.getItem(CHAVE_AUTH) || 'null'); }
-  catch (e) { auth = null; }
-  if (auth && auth.token) iniciarApp(); else mostrarLogin();
-});
+      '<div><div class="n">' + Math.round(t.mediana) + '</
