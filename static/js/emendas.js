@@ -83,22 +83,12 @@ function sortBy(col) {
 function getListaOrdenada() {
   if (!sortColumn) return emendasCache;
   return [...emendasCache].sort((a, b) => {
-    const va = a[sortColumn], vb = b[sortColumn];
-    if (va == null && vb == null) return 0;
-    if (va == null) return 1;
-    if (vb == null) return -1;
-    if (typeof va === 'number' && typeof vb === 'number') {
-      return sortDirection === 'desc' ? vb - va : va - vb;
+    let r = _comparar(a[sortColumn], b[sortColumn], sortDirection);
+    // ordenando por ano, desempata pelo número da emenda
+    if (r === 0 && sortColumn === 'ano') {
+      r = _comparar(a.numero_emenda, b.numero_emenda, sortDirection);
     }
-    const sa = String(va).trim(), sb = String(vb).trim();
-    if (/^\d+(\.\d+)?$/.test(sa) && /^\d+(\.\d+)?$/.test(sb)) {
-      return sortDirection === 'desc'
-        ? parseFloat(sb) - parseFloat(sa)
-        : parseFloat(sa) - parseFloat(sb);
-    }
-    return sortDirection === 'desc'
-      ? sb.toLowerCase().localeCompare(sa.toLowerCase(), 'pt-BR')
-      : sa.toLowerCase().localeCompare(sb.toLowerCase(), 'pt-BR');
+    return r;
   });
 }
 
@@ -132,6 +122,7 @@ function renderTabela() {
 function atualizarKPIs() {
   const aguardando = emendasCache.filter(e => e.situacao === 'Aguardando').length;
   const pagas = emendasCache.filter(e => e.situacao === 'Pago').length;
+  $('kpi-total').textContent = emendasCache.length;
   $('kpi-aguardando').textContent = aguardando;
   $('kpi-pagas').textContent = pagas;
 }
@@ -213,6 +204,8 @@ const CAMPOS_FORM = {
 };
 
 function abrirModal(id) {
+  // ignora argumentos que não sejam id numérico (ex.: evento de clique)
+  if (typeof id !== 'number') id = null;
   $('form-emenda').reset();
   $('f-id').value = '';
   $('f-versao').value = '';
@@ -249,6 +242,10 @@ async function salvarEmenda(ev) {
   const dados = {};
   Object.entries(CAMPOS_FORM).forEach(([el, campo]) => { dados[campo] = $(el).value.trim(); });
   dados.ano = parseInt(dados.ano);
+  if (isNaN(dados.ano)) {
+    toast('Informe um ano válido', 'error');
+    return;
+  }
   dados.valor_empenhado = parseFloat($('f-valor').value) || 0;
   dados.valor_pago = parseFloat($('f-pago').value) || 0;
   if (id) dados.versao = parseInt($('f-versao').value) || 1;
