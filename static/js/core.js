@@ -183,28 +183,66 @@ async function iniciarApp() {
 
 // ---------- Navegação ----------
 function mostrarView(v) {
-  ['emendas', 'demandas', 'painel', 'atividade', 'lixeira'].forEach(n => {
+  ['emendas', 'painel', 'atividade', 'lixeira'].forEach(n => {
     $('view-' + n).hidden = (n !== v);
   });
   document.querySelectorAll('#nav button').forEach(b => {
     b.classList.toggle('active', b.dataset.view === v);
   });
 
-  const btnNovo = $('btn-novo');
-  if (btnNovo) {
-    if (v === 'demandas') {
-      btnNovo.textContent = 'Nova demanda';
-      btnNovo.onclick = abrirModalDemanda;
-    } else {
-      btnNovo.textContent = 'Nova emenda';
-      btnNovo.onclick = abrirModal;
-    }
-  }
-
-  if (v === 'demandas') carregarDemandas();
   if (v === 'painel') carregarPainel();
   if (v === 'atividade') carregarLogs(true);
   if (v === 'lixeira') carregarLixeira();
+  if (v === 'emendas') {
+    const modoDemandas = $('mostrar-demandas').checked;
+
+    $('kpis-emendas').hidden = modoDemandas;
+    $('kpis-demandas').hidden = !modoDemandas;
+    $('toolbar-emendas').hidden = modoDemandas;
+    $('toolbar-demandas').hidden = !modoDemandas;
+    $('tabela-emendas').hidden = modoDemandas;
+    $('tabela-demandas-card').hidden = !modoDemandas;
+    $('subtitulo-modo').textContent = modoDemandas
+      ? 'demandas extras'
+      : 'controle de emendas parlamentares';
+
+    const btnNovo = $('btn-novo');
+    const btnImp = $('btn-importar-emendas');
+    if (modoDemandas) {
+      btnNovo.textContent = 'Nova demanda';
+      btnNovo.onclick = abrirModalDemanda;
+      if (btnImp) btnImp.hidden = true;
+      carregarDemandas();
+      carregarFiltrosDemandas();
+    } else {
+      btnNovo.textContent = 'Nova emenda';
+      btnNovo.onclick = abrirModal;
+      if (btnImp) btnImp.hidden = false;
+      carregarEmendas();
+      carregarFiltros();
+    }
+  }
+}
+
+function alternarDemandas() {
+  mostrarView('emendas');
+}
+
+function toggleFiltros(qual) {
+  const el = $('filtros-painel-' + qual);
+  if (el) el.hidden = !el.hidden;
+}
+
+function _temFiltroAtivo(prefixo) {
+  if (prefixo === 'emendas') {
+    const ids = ['filtro-situacao','filtro-ano','filtro-municipio',
+                 'filtro-secretaria','filtro-lider','filtro-regiao'];
+    if ($('filtro-incompletos') && $('filtro-incompletos').checked) return true;
+    return ids.some(id => $(id) && $(id).value);
+  }
+  const ids = ['filtro-status-dem','filtro-ano-dem',
+               'filtro-secretaria-dem','filtro-municipio-dem'];
+  return ids.some(id => $(id) && $(id).value);
 }
 
 // ---------- Regiões ----------
