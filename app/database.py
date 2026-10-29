@@ -75,6 +75,25 @@ def _criar_tabelas(cur):
     cur.execute('''CREATE TABLE IF NOT EXISTS lixeira (
         id SERIAL PRIMARY KEY, excluida_em TEXT, excluida_por TEXT, dados JSONB)''')
 
+    cur.execute('''CREATE TABLE IF NOT EXISTS demandas (
+        id SERIAL PRIMARY KEY,
+        ano INTEGER NOT NULL,
+        secretaria TEXT,
+        municipio TEXT,
+        destinatario TEXT,
+        objeto TEXT,
+        valor NUMERIC(12,2) DEFAULT 0,
+        proposta_fpe TEXT,
+        status TEXT DEFAULT 'Aguardando',
+        observacoes TEXT,
+        convenio TEXT,
+        proa_sei TEXT,
+        data_pagto TEXT,
+        versao INTEGER DEFAULT 1,
+        atualizado_por TEXT,
+        atualizado_em TEXT,
+        criado_em TEXT)''')
+
 
 def _migrar_emendas(cur):
     colunas = [
