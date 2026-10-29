@@ -1,0 +1,967 @@
+// ============================================================
+// CONFIGURAÇÃO E ESTADO
+// ============================================================
+const NOME_SISTEMA = 'Controle de Emendas';
+const NSC = 'não consta na planilha';
+const CHAVE_AUTH = 'emendas_auth';
+
+let auth = null;
+let emendasCache = [];
+let debounceTimer = null, logTimer = null;
+let sortColumn = null, sortDirection = 'desc';
+let fichaAtualId = null;
+let regiaoEditadaManualmente = false;
+let regioesMap = {};
+let previewOk = false;
+let logsOffset = 0;
+let painelDados = null;
+const painelModo = { lider: 'n', municipio: 'n', regiao: 'n', secretaria: 'n' };
+
+// ============================================================
+// UTILITÁRIOS
+// ============================================================
+const $ = id => document.getElementById(id);
+
+function fmtMoney(v) {
+  return 'R$ ' + (Number(v) || 0).toLocaleString('pt-BR',
+    { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function fmtMoneyCurto(v) {
+  v = Number(v) || 0;
+  if (v >= 1e6) return 'R$ ' + (v / 1e6).toLocaleString('pt-BR', { maximumFractionDigits: 2 }) + ' mi';
+  if (v >= 1e3) return 'R$ ' + (v / 1e3).toLocaleString('pt-BR', { maximumFractionDigits: 0 }) + ' mil';
+  return 'R$ ' + v.toLocaleString('pt-BR');
+}
+
+function escapeHTML(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g,
+    c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+}
+
+function fmtNumero(n) { return String(n || '').startsWith('S/N-') ? NSC : (n || '—'); }
+
+function fmtData(d) {
+  if (!d) return '—';
+  const p = String(d).slice(0, 10).split('-');
+  return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : d;
+}
+
+function fmtDataCurta(d) {
+  if (!d) return '—';
+  const p = String(d).slice(0, 10).split('-');
+  return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0].slice(2) : d;
+}
+
+function fmtDataHora(iso) {
+  if (!iso) return '';
+  return new Date(iso).toLocaleString('pt-BR',
+    { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit',
+      year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function chaveMun(s) {
+  return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase().replace(/\s+/g, ' ').trim();
+}
+
+function badgeSituacao(s) {
+  const cls = (s || 'Aguardando').toLowerCase().normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '-');
+  return '<span class="status status-' + cls + '">' + escapeHTML(s || 'Aguardando') + '</span>';
+}
+
+function diasHTML(d) {
+  if (d == null) return '<span class="faint">—</span>';
+  const cls = d >= 60 ? 'critico' : d >= 30 ? 'alerta' : '';
+  return '<span class="dias ' + cls + '">' + d + (d === 1 ? ' dia' : ' dias') + '</span>';
+}
+
+function icone(path) {
+  return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + path + '</svg>';
+}
+const ICO_EDIT = '<path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>';
+const ICO_DEL = '<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>';
+
+function toast(msg, tipo) {
+  const el = $('toast');
+  $('toast-msg').textContent = msg;
+  el.className = 'toast show toast-' + (tipo || 'success');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('show'), 3800);
+}
+
+// ============================================================
+// API
+// ============================================================
+async function api(path, opts) {
+  opts = opts || {};
+  const headers = Object.assign({}, opts.headers || {});
+  if (auth && auth.token) headers['Authorization'] = 'Bearer ' + auth.token;
+  const init = { method: opts.method || 'GET', headers };
+  if (opts.json !== undefined) {
+    headers['Content-Type'] = 'application/json';
+    init.body = JSON.stringify(opts.json);
+  } else if (opts.body) {
+    init.body = opts.body;
+  }
+  const res = await fetch(path, init);
+  let data = null;
+  try { data = await res.json(); } catch (e) {}
+  if (res.status === 401 && path !== '/api/login') {
+    sair(true);
+    throw new Error('Sessão expirada. Entre novamente.');
+  }
+  if (!res.ok) {
+    const err = new Error((data && data.erro) || ('Erro ' + res.status));
+    err.status = res.status;
+    err.data = data;
+    throw err;
+  }
+  return data;
+}
+
+// ============================================================
+// AUTENTICAÇÃO
+// ============================================================
+function mostrarLogin() {
+  $('app').hidden = true;
+  $('login-screen').hidden = false;
+  $('l-senha').value = '';
+  setTimeout(() => $('l-usuario').focus(), 50);
+}
+
+async function entrar(ev) {
+  ev.preventDefault();
+  const btn = $('l-btn');
+  btn.disabled = true;
+  $('l-erro').textContent = '';
+  try {
+    const d = await api('/api/login', {
+      method: 'POST',
+      json: { usuario: $('l-usuario').value, senha: $('l-senha').value }
+    });
+    auth = d;
+    localStorage.setItem(CHAVE_AUTH, JSON.stringify(d));
+    iniciarApp();
+  } catch (err) {
+    $('l-erro').textContent = err.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function sair(expirou) {
+  localStorage.removeItem(CHAVE_AUTH);
+  auth = null;
+  $('user-dropdown').hidden = true;
+  mostrarLogin();
+  if (expirou) $('l-erro').textContent = 'Sessão expirada. Entre novamente.';
+}
+
+function toggleMenu(ev) {
+  ev.stopPropagation();
+  $('user-dropdown').hidden = !$('user-dropdown').hidden;
+}
+
+document.addEventListener('click', () => {
+  const d = $('user-dropdown');
+  if (d) d.hidden = true;
+});
+
+async function iniciarApp() {
+  $('login-screen').hidden = true;
+  $('app').hidden = false;
+  $('user-btn').textContent = auth.nome;
+  $('user-who').textContent = auth.nome + ' (' + auth.usuario + ')'
+    + (auth.admin ? ' · administrador' : '');
+  $('menu-admin').hidden = !auth.admin;
+  await carregarRegioes();
+  carregarTudo();
+  mostrarView('emendas');
+}
+
+// ============================================================
+// NAVEGAÇÃO
+// ============================================================
+function mostrarView(v) {
+  ['emendas', 'painel', 'atividade', 'lixeira'].forEach(n => {
+    $('view-' + n).hidden = (n !== v);
+  });
+  document.querySelectorAll('#nav button').forEach(b => {
+    b.classList.toggle('active', b.dataset.view === v);
+  });
+  if (v === 'painel') carregarPainel();
+  if (v === 'atividade') carregarLogs(true);
+  if (v === 'lixeira') carregarLixeira();
+}
+
+// ============================================================
+// REGIÕES
+// ============================================================
+async function carregarRegioes() {
+  try {
+    const lista = await api('/api/regioes');
+    regioesMap = {};
+    const regs = new Set();
+    lista.forEach(x => { regioesMap[chaveMun(x.m)] = x.r; regs.add(x.r); });
+    $('lista-municipios').innerHTML = lista.map(x =>
+      '<option>' + escapeHTML(x.m) + '</option>').join('');
+    $('lista-regioes').innerHTML = [...regs].sort().map(r =>
+      '<option>' + escapeHTML(r) + '</option>').join('');
+  } catch (err) { console.error(err); }
+}
+
+function configurarAutoRegiao() {
+  $('f-regiao').addEventListener('input', () => { regiaoEditadaManualmente = true; });
+  $('f-municipio').addEventListener('input', function () {
+    if (regiaoEditadaManualmente) return;
+    $('f-regiao').value = regioesMap[chaveMun(this.value)] || '';
+  });
+}
+
+// ============================================================
+// LISTAGEM
+// ============================================================
+function debounceBusca() {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(carregarEmendas, 300);
+}
+
+function marcarChips() {
+  const v = $('filtro-parada').value;
+  document.querySelectorAll('#chips-dias .chip').forEach(c =>
+    c.classList.toggle('on', c.dataset.d === v));
+}
+
+function limparFiltros() {
+  ['busca', 'filtro-situacao', 'filtro-ano', 'filtro-municipio',
+   'filtro-secretaria', 'filtro-lider', 'filtro-regiao', 'filtro-parada']
+    .forEach(id => { $(id).value = ''; });
+  $('filtro-incompletos').checked = false;
+  marcarChips();
+  carregarEmendas();
+}
+
+async function carregarEmendas() {
+  const p = new URLSearchParams();
+  const add = (k, id) => { const v = $(id).value.trim(); if (v) p.append(k, v); };
+  add('q', 'busca');
+  add('situacao', 'filtro-situacao');
+  add('ano', 'filtro-ano');
+  add('municipio', 'filtro-municipio');
+  add('secretaria', 'filtro-secretaria');
+  add('lider', 'filtro-lider');
+  add('regiao', 'filtro-regiao');
+  add('parada_dias', 'filtro-parada');
+  if ($('filtro-incompletos').checked) p.append('incompletos', '1');
+  try {
+    emendasCache = await api('/api/emendas?' + p);
+    renderTabela();
+    atualizarKPIs();
+  } catch (err) {
+    console.error(err);
+    toast('Erro ao carregar emendas', 'error');
+  }
+}
+
+async function carregarFiltros() {
+  try {
+    const f = await api('/api/filtros');
+    const preencher = (id, rotulo, itens) => {
+      const el = $(id), atual = el.value;
+      el.innerHTML = '<option value="">' + rotulo + '</option>' +
+        itens.map(s => '<option>' + escapeHTML(s) + '</option>').join('');
+      if (itens.map(String).includes(atual)) el.value = atual;
+    };
+    preencher('filtro-situacao', 'Todas as situações', f.situacoes);
+    preencher('filtro-ano', 'Todos os anos', f.anos);
+    preencher('filtro-municipio', 'Todos os municípios', f.municipios);
+    preencher('filtro-secretaria', 'Todas as secretarias', f.secretarias);
+    preencher('filtro-lider', 'Todos os líderes', f.lideres);
+    preencher('filtro-regiao', 'Todas as regiões', f.regioes);
+    const pa = $('painel-ano'), cur = pa.value;
+    pa.innerHTML = '<option value="">Todos os anos</option>' +
+      f.anos.map(a => '<option>' + a + '</option>').join('');
+    if (f.anos.map(String).includes(cur)) pa.value = cur;
+  } catch (err) { console.error(err); }
+}
+
+function carregarTudo() {
+  carregarEmendas();
+  carregarFiltros();
+}
+
+function sortBy(col) {
+  if (sortColumn === col) sortDirection = sortDirection === 'desc' ? 'asc' : 'desc';
+  else { sortColumn = col; sortDirection = 'desc'; }
+  document.querySelectorAll('thead th.sortable').forEach(th => {
+    th.classList.remove('sorted-asc', 'sorted-desc');
+    if (th.dataset.sort === sortColumn) {
+      th.classList.add(sortDirection === 'desc' ? 'sorted-desc' : 'sorted-asc');
+    }
+  });
+  renderTabela();
+}
+
+function getListaOrdenada() {
+  if (!sortColumn) return emendasCache;
+  return [...emendasCache].sort((a, b) => {
+    const va = a[sortColumn], vb = b[sortColumn];
+    if (va == null && vb == null) return 0;
+    if (va == null) return 1;
+    if (vb == null) return -1;
+    if (typeof va === 'number' && typeof vb === 'number') {
+      return sortDirection === 'desc' ? vb - va : va - vb;
+    }
+    const sa = String(va).trim(), sb = String(vb).trim();
+    if (/^\d+(\.\d+)?$/.test(sa) && /^\d+(\.\d+)?$/.test(sb)) {
+      return sortDirection === 'desc'
+        ? parseFloat(sb) - parseFloat(sa)
+        : parseFloat(sa) - parseFloat(sb);
+    }
+    return sortDirection === 'desc'
+      ? sb.toLowerCase().localeCompare(sa.toLowerCase(), 'pt-BR')
+      : sa.toLowerCase().localeCompare(sb.toLowerCase(), 'pt-BR');
+  });
+}
+
+function renderTabela() {
+  const tbody = $('tbody'), lista = getListaOrdenada();
+  $('contador').textContent = lista.length;
+  $('contador-label').textContent = lista.length === 1 ? 'emenda' : 'emendas';
+  $('tabela-wrap').hidden = lista.length === 0;
+  $('empty').hidden = lista.length !== 0;
+  tbody.innerHTML = '';
+  lista.forEach(e => {
+    const tr = document.createElement('tr');
+    tr.addEventListener('click', () => abrirFicha(e.id));
+    tr.innerHTML =
+      '<td><div class="cell-main">' + escapeHTML(fmtNumero(e.numero_emenda)) + '</div><div class="cell-sub">' + escapeHTML(e.ano) + '</div></td>' +
+      '<td><div class="cell-main">' + escapeHTML(e.secretaria || '—') + '</div></td>' +
+      '<td><div class="cell-main">' + escapeHTML(e.municipio) + '</div><div class="cell-sub">' + escapeHTML(e.regiao || '—') + '</div></td>' +
+      '<td><div class="cell-main">' + escapeHTML(e.entidade || '—') + '</div><div class="cell-sub">' + escapeHTML(e.cnpj || '—') + '</div></td>' +
+      '<td class="cell-obj" title="' + escapeHTML(e.objeto || '') + '"><div class="cell-main">' + escapeHTML(e.objeto || '—') + '</div></td>' +
+      '<td class="cell-value">' + fmtMoney(e.valor_empenhado) + '<small>Pago: ' + fmtMoney(e.valor_pago) + '</small></td>' +
+      '<td>' + badgeSituacao(e.situacao) + '</td>' +
+      '<td class="right">' + diasHTML(e.dias_parada) + '</td>' +
+      '<td class="cell-actions"><div class="row-actions">' +
+        '<button class="btn-icon" onclick="event.stopPropagation(); abrirModal(' + e.id + ')" title="Editar">' + icone(ICO_EDIT) + '</button>' +
+        '<button class="btn-icon danger" onclick="event.stopPropagation(); excluirEmenda(' + e.id + ')" title="Excluir">' + icone(ICO_DEL) + '</button>' +
+      '</div></td>';
+    tbody.appendChild(tr);
+  });
+}
+
+function atualizarKPIs() {
+  $('kpi-total').textContent = emendasCache.length;
+  $('kpi-valor').textContent = fmtMoney(emendasCache.reduce((s, e) => s + (Number(e.valor_empenhado) || 0), 0));
+  $('kpi-pago').textContent = fmtMoney(emendasCache.reduce((s, e) => s + (Number(e.valor_pago) || 0), 0));
+}
+
+// ============================================================
+// FICHA
+// ============================================================
+async function abrirFichaPorId(id) {
+  if (!emendasCache.find(x => x.id === id)) {
+    try { emendasCache.push(await api('/api/emendas/' + id)); }
+    catch (err) {
+      toast('Emenda não encontrada (pode estar na lixeira)', 'error');
+      return;
+    }
+  }
+  abrirFicha(id);
+}
+
+function campoFicha(rotulo, valor, opts) {
+  opts = opts || {};
+  const vazio = valor == null || valor === '' || valor === NSC;
+  const txt = vazio ? '<span class="faint">' + (opts.vazio || '—') + '</span>' : escapeHTML(valor);
+  return '<div class="ficha-field' + (opts.full ? ' full' : '') + '"><label>' + rotulo + '</label><div' + (opts.pre ? ' class="pre"' : '') + '>' + txt + '</div></div>';
+}
+
+async function abrirFicha(id) {
+  const e = emendasCache.find(x => x.id === id);
+  if (!e) return;
+  fichaAtualId = id;
+  $('ficha-titulo').textContent = 'Emenda nº ' + fmtNumero(e.numero_emenda);
+  $('ficha-sub').textContent = 'Ano ' + (e.ano || '—') + ' · ' + (e.municipio || '—');
+  const bruta = (e.situacao_bruta && e.situacao_bruta !== e.situacao)
+    ? '<span style="font-size:12px;color:var(--muted);">Na planilha: ' + escapeHTML(e.situacao_bruta) + '</span>' : '';
+  const nc = 'não consta na planilha';
+  $('ficha-body').innerHTML =
+    '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px;">' + badgeSituacao(e.situacao) +
+      (e.dias_parada != null ? '<span style="font-size:12.5px;color:var(--muted);">sem movimento há ' + diasHTML(e.dias_parada) + '</span>' : '') + bruta + '</div>' +
+    '<div class="ficha-section"><div class="ficha-section-title">Identificação</div><div class="ficha-grid">' +
+      campoFicha('Nº da emenda', fmtNumero(e.numero_emenda)) + campoFicha('Ano', e.ano) + campoFicha('Secretaria', e.secretaria, { vazio: nc }) + '</div></div>' +
+    '<div class="ficha-section"><div class="ficha-section-title">Localidade</div><div class="ficha-grid">' +
+      campoFicha('Município', e.municipio) + campoFicha('Região', e.regiao, { vazio: nc }) + campoFicha('Líder', e.lider, { vazio: nc }) + '</div></div>' +
+    '<div class="ficha-section"><div class="ficha-section-title">Entidade beneficiária</div><div class="ficha-grid">' +
+      campoFicha('Entidade', e.entidade, { vazio: nc }) + campoFicha('CNPJ', e.cnpj, { vazio: nc }) + campoFicha('Ofício', e.oficio, { vazio: nc }) + '</div></div>' +
+    '<div class="ficha-section"><div class="ficha-section-title">Contatos</div>' +
+      '<div class="ficha-sub">Responsável</div><div class="ficha-grid" style="margin-bottom:12px;">' +
+        campoFicha('Nome', e.resp_nome, { vazio: nc }) + campoFicha('Telefone', e.resp_contato, { vazio: nc }) + campoFicha('E-mail', e.resp_email, { vazio: nc }) + '</div>' +
+      '<div class="ficha-sub">Ponto focal</div><div class="ficha-grid">' +
+        campoFicha('Nome', e.pf_nome, { vazio: nc }) + campoFicha('Telefone', e.pf_contato, { vazio: nc }) + campoFicha('E-mail', e.pf_email, { vazio: nc }) + '</div></div>' +
+    '<div class="ficha-section"><div class="ficha-section-title">Detalhes</div>' +
+      campoFicha('Objeto', e.objeto, { full: true, vazio: nc }) + campoFicha('Referência', e.referencia, { full: true, pre: true, vazio: nc }) +
+      campoFicha('Justificativa', e.justificativa, { full: true, pre: true, vazio: nc }) +
+      (e.observacoes ? campoFicha('Observações', e.observacoes, { full: true, pre: true }) : '') + '</div>' +
+    '<div class="ficha-section"><div class="ficha-section-title">Valores e prazos</div><div class="ficha-grid">' +
+      '<div class="ficha-field"><label>Valor da emenda</label><div style="font-weight:600;">' + fmtMoney(e.valor_empenhado) + '</div></div>' +
+      '<div class="ficha-field"><label>Valor pago</label><div style="font-weight:600;">' + fmtMoney(e.valor_pago) + '</div></div>' +
+      campoFicha('Data da última atualização', e.situacao_data ? fmtDataCurta(e.situacao_data) : '') +
+      campoFicha('Data de entrada', e.data_entrada ? fmtData(e.data_entrada) : '') +
+      campoFicha('Data do pagamento', e.pago_em ? fmtData(e.pago_em) : '') + '</div></div>' +
+    '<div class="ficha-section"><div class="ficha-section-title">Histórico</div><div class="hist-mini" id="ficha-hist"><span class="hint">Carregando...</span></div></div>';
+  $('modal-ficha').classList.add('open');
+  try {
+    const r = await api('/api/logs?emenda_id=' + id + '&limite=15');
+    $('ficha-hist').innerHTML = r.itens.length
+      ? r.itens.map(l => logItemHTML(l, false)).join('')
+      : '<span class="hint">Nenhuma alteração registrada.</span>';
+  } catch (err) {
+    $('ficha-hist').innerHTML = '<span class="hint">Não foi possível carregar o histórico.</span>';
+  }
+}
+
+function fecharFicha() { $('modal-ficha').classList.remove('open'); }
+function editarDaFicha() { const id = fichaAtualId; fecharFicha(); if (id) abrirModal(id); }
+async function excluirDaFicha() {
+  const id = fichaAtualId;
+  if (id && await excluirEmenda(id)) fecharFicha();
+}
+
+// ============================================================
+// FORMULÁRIO
+// ============================================================
+const CAMPOS_FORM = {
+  'f-numero': 'numero_emenda', 'f-ano': 'ano', 'f-secretaria': 'secretaria',
+  'f-municipio': 'municipio', 'f-regiao': 'regiao', 'f-lider': 'lider',
+  'f-oficio': 'oficio', 'f-referencia': 'referencia', 'f-entidade': 'entidade',
+  'f-cnpj': 'cnpj', 'f-resp-nome': 'resp_nome', 'f-resp-contato': 'resp_contato',
+  'f-resp-email': 'resp_email', 'f-pf-nome': 'pf_nome', 'f-pf-contato': 'pf_contato',
+  'f-pf-email': 'pf_email', 'f-objeto': 'objeto', 'f-justificativa': 'justificativa',
+  'f-situacao': 'situacao', 'f-observacoes': 'observacoes',
+  'f-data-entrada': 'data_entrada', 'f-pago-em': 'pago_em',
+};
+
+function abrirModal(id) {
+  $('form-emenda').reset();
+  $('f-id').value = '';
+  $('f-versao').value = '';
+  $('f-ano').value = new Date().getFullYear();
+  $('modal-title').textContent = id ? 'Editar emenda' : 'Nova emenda';
+  regiaoEditadaManualmente = false;
+  if (id) {
+    const e = emendasCache.find(x => x.id === id);
+    if (e) {
+      $('f-id').value = e.id;
+      $('f-versao').value = e.versao || 1;
+      Object.entries(CAMPOS_FORM).forEach(([el, campo]) => {
+        $(el).value = (e[campo] == null || e[campo] === NSC)
+          ? ''
+          : String(e[campo]).slice(0, campo.includes('data') || campo === 'pago_em' ? 10 : undefined);
+      });
+      $('f-situacao').value = e.situacao || 'Aguardando';
+      $('f-valor').value = e.valor_empenhado || '';
+      $('f-pago').value = e.valor_pago || '';
+      if (e.regiao && e.regiao !== NSC) regiaoEditadaManualmente = true;
+    }
+  }
+  $('modal-overlay').classList.add('open');
+  setTimeout(() => $('f-numero').focus(), 100);
+}
+
+function fecharModal() { $('modal-overlay').classList.remove('open'); }
+
+async function salvarEmenda(ev) {
+  ev.preventDefault();
+  const btn = $('btn-salvar');
+  if (btn.disabled) return;
+  const id = $('f-id').value;
+  const dados = {};
+  Object.entries(CAMPOS_FORM).forEach(([el, campo]) => { dados[campo] = $(el).value.trim(); });
+  dados.ano = parseInt(dados.ano);
+  dados.valor_empenhado = parseFloat($('f-valor').value) || 0;
+  dados.valor_pago = parseFloat($('f-pago').value) || 0;
+  if (id) dados.versao = parseInt($('f-versao').value) || 1;
+  btn.disabled = true;
+  btn.textContent = 'Salvando...';
+  let sucesso = false, msg = 'Erro ao salvar emenda', tipo = 'error';
+  try {
+    await api(id ? '/api/emendas/' + id : '/api/emendas',
+      { method: id ? 'PUT' : 'POST', json: dados });
+    sucesso = true;
+    msg = id ? 'Emenda atualizada' : 'Emenda criada';
+    tipo = 'success';
+  } catch (err) {
+    msg = err.status === 409
+      ? 'Esta emenda foi alterada por outro usuário. Recarregue a página.'
+      : err.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Salvar';
+  }
+  if (sucesso) fecharModal();
+  toast(msg, tipo);
+  if (sucesso) carregarTudo();
+}
+
+async function excluirEmenda(id) {
+  if (!confirm('Mover esta emenda para a lixeira? Ela poderá ser restaurada depois.')) return false;
+  try {
+    await api('/api/emendas/' + id, { method: 'DELETE' });
+    toast('Emenda movida para a lixeira');
+    carregarTudo();
+    return true;
+  } catch (err) {
+    toast(err.message, 'error');
+    return false;
+  }
+}
+
+// ============================================================
+// PAINEL
+// ============================================================
+function barras(lista, opts) {
+  opts = opts || {};
+  if (!lista || !lista.length) return '<div class="sem-dados">Sem dados para exibir.</div>';
+  const campo = opts.campo || 'n', fmt = opts.fmt || (v => v);
+  const max = Math.max.apply(null, lista.map(i => Number(i[campo]) || 0)) || 1;
+  return lista.map(i => {
+    const v = Number(i[campo]) || 0;
+    return '<div class="bar-row"><div class="bar-label" title="' + escapeHTML(i.nome) + '">' + escapeHTML(i.nome) + '</div>' +
+      '<div class="bar-track"><div class="bar-fill" style="width:' + Math.max(2, v / max * 100) + '%"></div></div>' +
+      '<div class="bar-val">' + fmt(v, i) + '</div></div>';
+  }).join('');
+}
+
+function donut(lista) {
+  const cores = {
+    Pago: 'var(--c-pago)', Aguardando: 'var(--c-aguardando)',
+    Cancelada: 'var(--c-cancelada)', Empenhado: 'var(--c-empenhado)'
+  };
+  const total = lista.reduce((s, i) => s + i.n, 0);
+  if (!total) return '<div class="sem-dados">Sem dados para exibir.</div>';
+  const R = 42, C = 2 * Math.PI * R;
+  let off = 0, arcos = '';
+  lista.forEach(i => {
+    const len = i.n / total * C;
+    arcos += '<circle cx="60" cy="60" r="' + R + '" fill="none" stroke="' + (cores[i.nome] || '#aab') + '" stroke-width="16" stroke-dasharray="' + len + ' ' + (C - len) + '" stroke-dashoffset="' + (-off) + '" transform="rotate(-90 60 60)"/>';
+    off += len;
+  });
+  const legenda = lista.map(i =>
+    '<div><i style="background:' + (cores[i.nome] || '#aab') + '"></i><span><b>' + i.n + '</b> ' + escapeHTML(i.nome).toLowerCase() + ' <span class="faint">(' + Math.round(i.n / total * 100) + '% · ' + fmtMoneyCurto(i.valor) + ')</span></span></div>'
+  ).join('');
+  return '<div class="donut-wrap"><svg width="130" height="130" viewBox="0 0 120 120">' + arcos +
+    '<text x="60" y="58" text-anchor="middle" font-size="20" font-weight="600" fill="currentColor">' + total + '</text>' +
+    '<text x="60" y="73" text-anchor="middle" font-size="9" fill="var(--muted)">emendas</text></svg><div class="legend">' + legenda + '</div></div>';
+}
+
+function colunas(lista) {
+  if (!lista || !lista.length) return '<div class="sem-dados">Ainda não há pagamentos com data registrada.</div>';
+  const W = 520, H = 190, base = 150, topo = 24, n = lista.length, gap = 10;
+  const bw = Math.min(46, (W - 20 - gap * (n - 1)) / n);
+  const total = n * bw + (n - 1) * gap, x0 = (W - total) / 2;
+  const max = Math.max.apply(null, lista.map(i => i.valor)) || 1;
+  let svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" style="max-height:210px"><line x1="0" y1="' + base + '" x2="' + W + '" y2="' + base + '" stroke="var(--border)"/>';
+  lista.forEach((i, k) => {
+    const h = Math.max(2, i.valor / max * (base - topo)), x = x0 + k * (bw + gap);
+    const [a, m] = String(i.nome).split('-');
+    svg += '<rect x="' + x + '" y="' + (base - h) + '" width="' + bw + '" height="' + h + '" fill="var(--accent)"/>' +
+      '<text x="' + (x + bw / 2) + '" y="' + (base - h - 5) + '" text-anchor="middle" font-size="10" fill="var(--muted)">' + fmtMoneyCurto(i.valor).replace('R$ ', '') + '</text>' +
+      '<text x="' + (x + bw / 2) + '" y="' + (base + 15) + '" text-anchor="middle" font-size="10.5" fill="var(--muted)">' + m + '/' + a.slice(2) + '</text>' +
+      '<text x="' + (x + bw / 2) + '" y="' + (base + 28) + '" text-anchor="middle" font-size="10" fill="var(--faint)">' + i.n + ' emenda' + (i.n === 1 ? '' : 's') + '</text>';
+  });
+  return svg + '</svg>';
+}
+
+function cardRanking(chave, titulo, d) {
+  const modo = painelModo[chave];
+  const lista = d[chave + '_' + modo];
+  const fmt = modo === 'n'
+    ? (v, i) => v + ' <span class="faint">(' + i.pagas + ' pagas)</span>'
+    : v => fmtMoneyCurto(v);
+  return '<div class="card"><div class="card-head"><div class="card-title">' + titulo + '</div>' +
+    '<div class="seg"><button class="' + (modo === 'n' ? 'on' : '') + '" onclick="trocarModo(\'' + chave + '\',\'n\')">Quantidade</button>' +
+    '<button class="' + (modo === 'valor' ? 'on' : '') + '" onclick="trocarModo(\'' + chave + '\',\'valor\')">Valor</button></div></div>' +
+    barras(lista, { campo: modo, fmt }) + '</div>';
+}
+
+function trocarModo(chave, modo) { painelModo[chave] = modo; renderPainel(); }
+
+async function carregarPainel() {
+  const ano = $('painel-ano').value;
+  try {
+    painelDados = await api('/api/estatisticas' + (ano ? '?ano=' + ano : ''));
+    renderPainel();
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+function renderPainel() {
+  const d = painelDados; if (!d) return;
+  const r = d.resumo, t = d.tempo_pagamento;
+  const pct = r.valor_total ? Math.round(r.valor_pago / r.valor_total * 100) : 0;
+  $('painel-sub').textContent = $('painel-ano').value ? 'emendas de ' + $('painel-ano').value : 'todos os anos';
+  $('painel-kpis').innerHTML =
+    '<div class="kpi"><div class="kpi-label">Emendas</div><div class="kpi-value">' + r.total + '</div></div>' +
+    '<div class="kpi"><div class="kpi-label">Valor total</div><div class="kpi-value small">' + fmtMoneyCurto(r.valor_total) + '</div></div>' +
+    '<div class="kpi"><div class="kpi-label">Valor pago</div><div class="kpi-value small">' + fmtMoneyCurto(r.valor_pago) + '</div><div class="kpi-sub">' + pct + '% do total</div></div>' +
+    '<div class="kpi"><div class="kpi-label">Em aberto</div><div class="kpi-value">' + r.aguardando + '</div><div class="kpi-sub">' + r.pagas + ' pagas</div></div>' +
+    '<div class="kpi"><div class="kpi-label">Sem movimento 30+ dias</div><div class="kpi-value">' + r.paradas_30 + '</div></div>' +
+    '<div class="kpi"><div class="kpi-label">Tempo médio até pagar</div><div class="kpi-value">' + (t.n ? Math.round(t.media) + ' dias' : '—') + '</div><div class="kpi-sub">' + (t.n ? 'base: ' + t.n + ' pagamentos' : 'sem datas ainda') + '</div></div>';
+
+  const tempoHTML = t.n
+    ? '<div class="big-nums"><div><div class="n">' + Math.round(t.media) + '</div><div class="l">dias em média</div></div>' +
+      '<div><div class="n">' + Math.round(t.mediana) + '</div><div class="l">dias (mediana)</div></div>' +
+      '<div><div class="n">' + t.minimo + ' – ' + t.maximo + '</div><div class="l">menor e maior prazo</div></div>' +
+      '<div><div class="n">' + t.n + '</div><div class="l">pagamentos medidos</div></div></div>' +
+      (d.tempo_secretaria.length ? '<div class="ficha-sub" style="margin-top:6px;">Média de dias por secretaria</div>' + barras(d.tempo_secretaria.map(i => ({ nome: i.nome, n: Math.round(i.media), q: i.n })), { campo: 'n', fmt: (v, i) => v + ' d <span class="faint">(' + i.q + ')</span>' }) : '')
+    : '<div class="sem-dados">Ainda não há pagamentos com data registrada. O prazo é medido da data de entrada (ou do cadastro no sistema) até a data do pagamento. Ele passa a ser calculado conforme as emendas são pagas ou quando a data do pagamento é informada na emenda.</div>';
+
+  $('painel-cards').innerHTML =
+    '<div class="card"><div class="card-head"><div class="card-title">Situação das emendas</div></div>' + donut(d.por_situacao) + '</div>' +
+    '<div class="card"><div class="card-head"><div class="card-title">Emendas em aberto por tempo sem movimento</div></div>' + barras(d.faixas_paradas, { campo: 'n' }) +
+      '<div class="card-note">Conta a partir da última data citada na situação da planilha ou da última alteração feita no sistema.</div></div>' +
+    cardRanking('lider', 'Quem mais lidera', d) + cardRanking('municipio', 'Para onde mais é enviado (município)', d) +
+    cardRanking('regiao', 'Regiões', d) + cardRanking('secretaria', 'Secretarias', d) +
+    '<div class="card"><div class="card-head"><div class="card-title">Objetos mais frequentes</div></div>' + barras(d.objeto_n, { campo: 'n' }) + '</div>' +
+    '<div class="card"><div class="card-head"><div class="card-title">Tempo até o pagamento</div></div>' + tempoHTML + '</div>' +
+    '<div class="card wide"><div class="card-head"><div class="card-title">Valor pago por mês</div></div>' + colunas(d.pagamentos_mes) + '</div>' +
+    '<div class="card wide"><div class="card-head"><div class="card-title">Comparativo por ano</div></div>' +
+      barras(d.por_ano.map(i => ({ nome: i.nome + ' — ' + i.n + ' emendas', valor: i.valor, pago: i.pago })), { campo: 'valor', fmt: (v, i) => fmtMoneyCurto(v) + ' <span class="faint">(pago ' + fmtMoneyCurto(i.pago) + ')</span>' }) + '</div>';
+}
+
+// ============================================================
+// ATIVIDADE (LOGS)
+// ============================================================
+const ROTULO_ACAO = {
+  criou: 'Criação', editou: 'Edição', excluiu: 'Exclusão',
+  restaurou: 'Restauração', importou: 'Importação',
+  'regiões': 'Regiões', 'usuário': 'Usuários'
+};
+
+function logItemHTML(l, mostrarEmenda) {
+  const mud = (l.mudancas || []).map(m =>
+    '<div><b>' + escapeHTML(m.campo) + ':</b> ' + (m.de ? '<span class="de">' + escapeHTML(m.de) + '</span> → ' : '') + escapeHTML(m.para || '(vazio)') + '</div>'
+  ).join('');
+  const emenda = l.numero_emenda
+    ? (l.emenda_id && mostrarEmenda
+        ? '<a onclick="abrirFichaPorId(' + l.emenda_id + ')">Emenda ' + escapeHTML(fmtNumero(l.numero_emenda)) + '</a>'
+        : 'Emenda ' + escapeHTML(fmtNumero(l.numero_emenda))) +
+      (l.municipio ? ' · ' + escapeHTML(l.municipio) : '') + (l.ano ? ' · ' + l.ano : '')
+    : '';
+  const quando = '<div class="log-when">' + escapeHTML(fmtDataHora(l.criado_em)) + '<br><span class="log-who">' + escapeHTML(l.usuario || 'sistema') + '</span></div>';
+  const corpo = '<div><div class="log-head"><span class="log-acao ' + escapeHTML(l.acao) + '">' + escapeHTML(ROTULO_ACAO[l.acao] || l.acao) + '</span>' +
+    (mostrarEmenda ? emenda : '') + (l.detalhe ? (mostrarEmenda && emenda ? ' — ' : '') + escapeHTML(l.detalhe) : '') + '</div>' +
+    (mud ? '<div class="log-mud">' + mud + '</div>' : '') + '</div>';
+  return mostrarEmenda
+    ? '<div class="log-item">' + quando + corpo + '</div>'
+    : '<div class="log-item"><div class="log-when">' + escapeHTML(fmtDataHora(l.criado_em)) + ' · <span class="log-who">' + escapeHTML(l.usuario || 'sistema') + '</span></div>' + corpo + '</div>';
+}
+
+function debounceLogs() {
+  clearTimeout(logTimer);
+  logTimer = setTimeout(() => carregarLogs(true), 300);
+}
+
+async function carregarLogs(reiniciar) {
+  if (reiniciar) { logsOffset = 0; $('log-list').innerHTML = ''; }
+  const p = new URLSearchParams({ limite: 50, offset: logsOffset });
+  if ($('log-busca').value.trim()) p.append('q', $('log-busca').value.trim());
+  if ($('log-usuario').value) p.append('usuario', $('log-usuario').value);
+  if ($('log-acao').value) p.append('acao', $('log-acao').value);
+  try {
+    const r = await api('/api/logs?' + p);
+    const sel = $('log-usuario'), atual = sel.value;
+    sel.innerHTML = '<option value="">Todos os usuários</option>' +
+      r.usuarios.map(u => '<option>' + escapeHTML(u) + '</option>').join('');
+    sel.value = atual;
+    $('log-list').insertAdjacentHTML('beforeend', r.itens.map(l => logItemHTML(l, true)).join(''));
+    logsOffset += r.itens.length;
+    if (!$('log-list').children.length) {
+      $('log-list').innerHTML = '<div class="empty"><div class="empty-title">Nenhuma atividade encontrada</div></div>';
+    }
+    $('log-mais').hidden = logsOffset >= r.total;
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+// ============================================================
+// LIXEIRA
+// ============================================================
+async function carregarLixeira() {
+  try {
+    const lista = await api('/api/lixeira');
+    $('empty-lixeira').hidden = lista.length !== 0;
+    $('tbody-lixeira').innerHTML = lista.map(i => {
+      const d = i.dados || {};
+      return '<tr style="cursor:default;"><td>' + escapeHTML(fmtDataHora(i.excluida_em)) + '</td><td>' + escapeHTML(i.excluida_por || '—') + '</td>' +
+        '<td><div class="cell-main">' + escapeHTML(fmtNumero(d.numero_emenda)) + '</div><div class="cell-sub">' + escapeHTML(d.ano) + '</div></td>' +
+        '<td>' + escapeHTML(d.municipio || '—') + '</td><td>' + escapeHTML(d.entidade || '—') + '</td>' +
+        '<td class="cell-value">' + fmtMoney(d.valor_empenhado) + '</td>' +
+        '<td class="right" style="white-space:nowrap;"><button class="btn btn-secondary btn-sm" onclick="restaurarItem(' + i.id + ')">Restaurar</button>' +
+        (auth.admin ? ' <button class="btn btn-danger btn-sm" onclick="excluirDefinitivo(' + i.id + ')">Excluir definitivamente</button>' : '') + '</td></tr>';
+    }).join('');
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+async function restaurarItem(id) {
+  try {
+    await api('/api/lixeira/' + id + '/restaurar', { method: 'POST' });
+    toast('Emenda restaurada');
+    carregarLixeira();
+    carregarTudo();
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+async function excluirDefinitivo(id) {
+  if (!confirm('Excluir definitivamente? Esta ação não pode ser desfeita.')) return;
+  try {
+    await api('/api/lixeira/' + id, { method: 'DELETE' });
+    toast('Excluída definitivamente');
+    carregarLixeira();
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+// ============================================================
+// IMPORTAÇÃO
+// ============================================================
+function abrirModalImportar() {
+  $('imp-arquivo').value = '';
+  resetarPreview();
+  $('modal-importar').classList.add('open');
+}
+function fecharModalImportar() { $('modal-importar').classList.remove('open'); }
+function resetarPreview() {
+  previewOk = false;
+  $('btn-importar').disabled = true;
+  $('imp-preview').innerHTML = '';
+}
+
+function listaMudancas(itens) {
+  return itens.map(i =>
+    '<div class="it"><b>' + escapeHTML(fmtNumero(i.numero)) + '</b> · ' + escapeHTML(i.municipio) + (i.ano ? ' · ' + i.ano : '') +
+    (i.mudancas || []).map(m => '<div style="color:var(--muted);">' + escapeHTML(m.campo) + ': ' + (m.de ? '<span style="text-decoration:line-through;color:var(--faint);">' + escapeHTML(m.de) + '</span> → ' : '') + escapeHTML(m.para || '(vazio)') + '</div>').join('') + '</div>'
+  ).join('');
+}
+
+function blocoImport(chave, v) {
+  if (v.tipo === 'contatos') {
+    return '<div class="imp-bloco"><div class="imp-bloco-h">Contatos (aba ENTIDADES)</div><div class="imp-bloco-b">' +
+      '<b>' + v.encontradas + '</b> entidades localizadas · <b>' + v.alteradas + '</b> emendas com contatos novos ou alterados' +
+      (v.n_nao_encontradas ? ' · <span style="color:var(--warn);">' + v.n_nao_encontradas + ' sem correspondência</span>' : '') +
+      (v.lista_alteradas.length ? '<details><summary>Ver alterações</summary><div class="imp-lista">' + listaMudancas(v.lista_alteradas) + '</div></details>' : '') +
+      (v.nao_encontradas.length ? '<details><summary>Ver entidades sem correspondência</summary><div class="imp-lista">' + v.nao_encontradas.map(n => '<div class="it">' + escapeHTML(n) + '</div>').join('') + '</div></details>' : '') + '</div></div>';
+  }
+  const nc = Object.entries(v.nao_consta || {}).map(([k, n]) => k + ': ' + n).join(' · ');
+  return '<div class="imp-bloco"><div class="imp-bloco-h">Aba ' + chave + ' · ' + v.total_linhas + ' linhas</div><div class="imp-bloco-b">' +
+    '<span class="tag nova">' + v.novas + ' novas</span><span class="tag alt">' + v.alteradas + ' alteradas</span><span class="tag">' + v.iguais + ' sem alteração</span>' +
+    (v.ignoradas ? '<span class="tag">' + v.ignoradas + ' ignoradas</span>' : '') +
+    '<div style="margin-top:6px;color:var(--muted);">' + v.pagas + ' pagas · ' + v.aguardando + ' aguardando' + (v.sem_numero ? ' · ' + v.sem_numero + ' sem nº na planilha' : '') + '</div>' +
+    (nc ? '<div class="hint" style="margin-top:4px;">Campos sem informação ("não consta na planilha"): ' + escapeHTML(nc) + '</div>' : '') +
+    (v.exemplos_novas.length ? '<details><summary>Ver exemplos de emendas novas</summary><div class="imp-lista">' + v.exemplos_novas.map(n => '<div class="it"><b>' + escapeHTML(fmtNumero(n.numero)) + '</b> · ' + escapeHTML(n.municipio) + ' · ' + fmtMoney(n.valor) + '</div>').join('') + '</div></details>' : '') +
+    (v.lista_alteradas.length ? '<details><summary>Ver alterações (' + v.alteradas + (v.alteradas > v.lista_alteradas.length ? ', mostrando ' + v.lista_alteradas.length : '') + ')</summary><div class="imp-lista">' + listaMudancas(v.lista_alteradas) + '</div></details>' : '') +
+    '</div></div>';
+}
+
+async function chamarImportacao(rota) {
+  const arquivo = $('imp-arquivo').files[0];
+  if (!arquivo) { toast('Selecione um arquivo', 'error'); return null; }
+  const fd = new FormData();
+  fd.append('arquivo', arquivo);
+  fd.append('aba', $('imp-aba').value);
+  return api(rota, { method: 'POST', body: fd });
+}
+
+async function previewImportar() {
+  const box = $('imp-preview');
+  resetarPreview();
+  if (!$('imp-arquivo').files[0]) { toast('Selecione um arquivo', 'error'); return; }
+  box.innerHTML = '<span class="hint">Lendo planilha…</span>';
+  $('btn-preview').disabled = true;
+  try {
+    const data = await chamarImportacao('/api/importar/preview');
+    const abas = data.abas, chaves = Object.keys(abas);
+    box.innerHTML = chaves.map(k => blocoImport(k, abas[k])).join('');
+    const mudancas = chaves.reduce((s, k) => s + (abas[k].novas || 0) + (abas[k].alteradas || 0), 0);
+    previewOk = true;
+    $('btn-importar').disabled = false;
+    if (!mudancas) box.insertAdjacentHTML('afterbegin', '<div class="hint" style="margin-top:8px;">Nenhuma diferença em relação ao que já está no sistema.</div>');
+  } catch (err) {
+    box.innerHTML = '<span style="color:var(--bad);">' + escapeHTML(err.message) + '</span>';
+  } finally {
+    $('btn-preview').disabled = false;
+  }
+}
+
+async function executarImportar() {
+  if (!previewOk) { toast('Faça a pré-visualização antes de importar', 'error'); return; }
+  if (!confirm('Aplicar as alterações mostradas na pré-visualização?')) return;
+  const btn = $('btn-importar');
+  btn.disabled = true;
+  btn.textContent = 'Importando…';
+  try {
+    const data = await chamarImportacao('/api/importar');
+    toast(data.importadas + ' emendas novas ou atualizadas');
+    fecharModalImportar();
+    carregarTudo();
+    carregarRegioes();
+  } catch (err) {
+    toast('Falha: ' + err.message, 'error');
+  } finally {
+    btn.textContent = 'Importar';
+    btn.disabled = !previewOk;
+  }
+}
+
+// ============================================================
+// USUÁRIOS, SENHA E REGIÕES
+// ============================================================
+function abrirSenha() {
+  ['s-atual', 's-nova', 's-nova2'].forEach(i => { $(i).value = ''; });
+  $('modal-senha').classList.add('open');
+}
+function fecharSenha() { $('modal-senha').classList.remove('open'); }
+async function salvarSenha() {
+  if ($('s-nova').value !== $('s-nova2').value) {
+    toast('As senhas novas não conferem', 'error');
+    return;
+  }
+  try {
+    await api('/api/senha', {
+      method: 'PUT',
+      json: { atual: $('s-atual').value, nova: $('s-nova').value }
+    });
+    toast('Senha alterada');
+    fecharSenha();
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+async function abrirUsuarios() {
+  $('modal-usuarios').classList.add('open');
+  ['u-nome', 'u-usuario', 'u-senha'].forEach(i => { $(i).value = ''; });
+  $('u-admin').checked = false;
+  await carregarUsuarios();
+}
+function fecharUsuarios() { $('modal-usuarios').classList.remove('open'); }
+
+async function carregarUsuarios() {
+  try {
+    const lista = await api('/api/usuarios');
+    $('tbody-usuarios').innerHTML = lista.map(u =>
+      '<tr style="cursor:default;"><td>' + escapeHTML(u.nome) + '</td><td>' + escapeHTML(u.usuario) + '</td><td>' + (u.admin ? 'Administrador' : 'Usuário') + '</td>' +
+      '<td class="right" style="white-space:nowrap;"><button class="btn btn-secondary btn-sm" onclick="redefinirSenha(' + u.id + ')">Redefinir senha</button>' +
+      (u.id !== auth.id && u.usuario !== auth.usuario ? ' <button class="btn btn-danger btn-sm" onclick="removerUsuario(' + u.id + ')">Remover</button>' : '') + '</td></tr>'
+    ).join('');
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+async function criarUsuario() {
+  try {
+    await api('/api/usuarios', {
+      method: 'POST',
+      json: {
+        nome: $('u-nome').value,
+        usuario: $('u-usuario').value,
+        senha: $('u-senha').value,
+        admin: $('u-admin').checked
+      }
+    });
+    toast('Usuário criado');
+    ['u-nome', 'u-usuario', 'u-senha'].forEach(i => { $(i).value = ''; });
+    $('u-admin').checked = false;
+    carregarUsuarios();
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+async function redefinirSenha(id) {
+  const nova = prompt('Nova senha para este usuário (mínimo 6 caracteres):');
+  if (!nova) return;
+  try {
+    await api('/api/usuarios/' + id + '/senha', { method: 'PUT', json: { nova } });
+    toast('Senha redefinida');
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+async function removerUsuario(id) {
+  if (!confirm('Remover este usuário?')) return;
+  try {
+    await api('/api/usuarios/' + id, { method: 'DELETE' });
+    toast('Usuário removido');
+    carregarUsuarios();
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+function abrirRegioes() {
+  $('reg-arquivo').value = '';
+  $('reg-info').textContent = Object.keys(regioesMap).length + ' municípios cadastrados atualmente.';
+  $('modal-regioes').classList.add('open');
+}
+function fecharRegioes() { $('modal-regioes').classList.remove('open'); }
+
+async function enviarRegioes() {
+  const arq = $('reg-arquivo').files[0];
+  if (!arq) { toast('Selecione um arquivo', 'error'); return; }
+  const fd = new FormData();
+  fd.append('arquivo', arq);
+  try {
+    const r = await api('/api/regioes/importar', { method: 'POST', body: fd });
+    toast(r.municipios + ' municípios importados; ' + r.emendas_atualizadas + ' emendas atualizadas');
+    await carregarRegioes();
+    carregarTudo();
+    fecharRegioes();
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+// ============================================================
+// INICIALIZAÇÃO
+// ============================================================
+function setupOverlayClose(overlayEl, closeFn) {
+  let downOnOverlay = false;
+  const setDown = e => { downOnOverlay = (e.target === overlayEl); };
+  overlayEl.addEventListener('mousedown', setDown);
+  overlayEl.addEventListener('touchstart', setDown, { passive: true });
+  overlayEl.addEventListener('click', e => {
+    if (downOnOverlay && e.target === overlayEl) closeFn();
+    downOnOverlay = false;
+  });
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+  document.title = NOME_SISTEMA;
+  document.querySelectorAll('[data-nome-sistema]').forEach(el => { el.textContent = NOME_SISTEMA; });
+  configurarAutoRegiao();
+
+  document.querySelectorAll('thead th.sortable').forEach(th =>
+    th.addEventListener('click', () => sortBy(th.dataset.sort)));
+  document.querySelectorAll('#nav button').forEach(b =>
+    b.addEventListener('click', () => mostrarView(b.dataset.view)));
+  document.querySelectorAll('#chips-dias .chip').forEach(c =>
+    c.addEventListener('click', () => {
+      $('filtro-parada').value = ($('filtro-parada').value === c.dataset.d) ? '' : c.dataset.d;
+      marcarChips();
+      carregarEmendas();
+    }));
+
+  setupOverlayClose($('modal-overlay'), fecharModal);
+  setupOverlayClose($('modal-ficha'), fecharFicha);
+  setupOverlayClose($('modal-importar'), fecharModalImportar);
+  setupOverlayClose($('modal-usuarios'), fecharUsuarios);
+  setupOverlayClose($('modal-senha'), fecharSenha);
+  setupOverlayClose($('modal-regioes'), fecharRegioes);
+
+  $('form-emenda').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') e.preventDefault();
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      fecharModal(); fecharFicha(); fecharModalImportar();
+      fecharUsuarios(); fecharSenha(); fecharRegioes();
+    }
+  });
+
+  try { auth = JSON.parse(localStorage.getItem(CHAVE_AUTH) || 'null'); }
+  catch (e) { auth = null; }
+  if (auth && auth.token) iniciarApp(); else mostrarLogin();
+});
