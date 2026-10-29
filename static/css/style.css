@@ -228,3 +228,25 @@ svg text { font-family: inherit; }
   tbody td { display: block; padding: 3px 14px; } .cell-value, .cell-actions { text-align: left; } td.right { text-align: left; }
   .row-actions { opacity: 1; justify-content: flex-start; margin-top: 6px; } .cell-obj { max-width: none; white-space: normal; }
 }
+/* Botão Filtros com indicador de filtros ativos */
+#btn-filtros-emendas.on,
+#btn-filtros-demandas.on {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+/* KPIs auto-ajustáveis (funciona com 2, 3 ou 6) */
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+/* Painel de filtros colapsável */
+.filtros-painel {
+  padding-top: 10px;
+  border-top: 1px solid var(--border-soft);
+  margin-top: 4px;
+}
