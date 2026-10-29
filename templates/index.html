@@ -8,7 +8,6 @@
 </head>
 <body>
 
-<!-- ============================================================ LOGIN -->
 <div class="login-wrap" id="login-screen" hidden>
   <form class="login-card" onsubmit="entrar(event)">
     <div class="login-title" data-nome-sistema>Controle de Emendas</div>
@@ -26,20 +25,18 @@
   </form>
 </div>
 
-<!-- ============================================================ APLICAÇÃO -->
 <div id="app" hidden>
 <header class="header">
   <div class="header-inner">
     <div class="brand-title" data-nome-sistema>Controle de Emendas</div>
     <nav class="nav" id="nav">
       <button data-view="emendas" class="active">Emendas</button>
-      <button data-view="demandas">Demandas</button>
       <button data-view="painel">Painel</button>
       <button data-view="atividade">Atividade</button>
       <button data-view="lixeira">Lixeira</button>
     </nav>
     <div class="header-actions">
-      <button class="btn btn-ghost btn-sm" onclick="abrirModalImportar()">Importar</button>
+      <button class="btn btn-ghost btn-sm" id="btn-importar-emendas" onclick="abrirModalImportar()">Importar</button>
       <button class="btn btn-primary btn-sm" id="btn-novo" onclick="abrirModal()">Nova emenda</button>
       <div class="user-menu">
         <button class="user-btn" id="user-btn" onclick="toggleMenu(event)">Usuário</button>
@@ -62,45 +59,73 @@
 
 <!-- ================= EMENDAS ================= -->
 <section id="view-emendas">
-  <section class="kpis">
-    <div class="kpi"><div class="kpi-label">Total de emendas</div><div class="kpi-value" id="kpi-total">—</div></div>
-    <div class="kpi"><div class="kpi-label">Valor total das emendas</div><div class="kpi-value small" id="kpi-valor">—</div></div>
-    <div class="kpi"><div class="kpi-label">Valor pago</div><div class="kpi-value small" id="kpi-pago">—</div></div>
+  <div class="page-title">
+    <span>Emendas <small id="subtitulo-modo">controle de emendas parlamentares</small></span>
+    <label class="check" style="margin-left:auto;">
+      <input type="checkbox" id="mostrar-demandas" onchange="alternarDemandas()"> Demandas extras
+    </label>
+  </div>
+
+  <!-- KPIs emendas -->
+  <section class="kpis" id="kpis-emendas">
+    <div class="kpi"><div class="kpi-label">Aguardando</div><div class="kpi-value" id="kpi-aguardando">—</div></div>
+    <div class="kpi"><div class="kpi-label">Pagas</div><div class="kpi-value" id="kpi-pagas">—</div></div>
   </section>
 
-  <section class="toolbar">
+  <!-- KPIs demandas -->
+  <section class="kpis" id="kpis-demandas" hidden>
+    <div class="kpi"><div class="kpi-label">Total de demandas</div><div class="kpi-value" id="dem-kpi-total">—</div></div>
+    <div class="kpi"><div class="kpi-label">Valor total</div><div class="kpi-value small" id="dem-kpi-valor">—</div></div>
+    <div class="kpi"><div class="kpi-label">Aprovadas</div><div class="kpi-value" id="dem-kpi-aprovadas">—</div></div>
+  </section>
+
+  <!-- Toolbar emendas -->
+  <section class="toolbar" id="toolbar-emendas">
     <div class="toolbar-row">
       <div class="search-wrap">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         <input type="text" id="busca" placeholder="Buscar por nº, município, objeto, entidade, líder, CNPJ..." oninput="debounceBusca()">
       </div>
+      <button class="btn btn-ghost btn-sm" id="btn-filtros-emendas" onclick="toggleFiltros('emendas')">Filtros</button>
+      <button class="btn btn-ghost btn-sm" onclick="limparFiltros()">Limpar</button>
+    </div>
+    <div class="toolbar-row filtros-painel" id="filtros-painel-emendas" hidden>
       <select class="filter-select" id="filtro-situacao" onchange="carregarEmendas()"><option value="">Todas as situações</option></select>
       <select class="filter-select" id="filtro-ano" onchange="carregarEmendas()"><option value="">Todos os anos</option></select>
       <select class="filter-select" id="filtro-municipio" onchange="carregarEmendas()"><option value="">Todos os municípios</option></select>
-    </div>
-    <div class="toolbar-row">
       <select class="filter-select" id="filtro-secretaria" onchange="carregarEmendas()"><option value="">Todas as secretarias</option></select>
       <select class="filter-select" id="filtro-lider" onchange="carregarEmendas()"><option value="">Todos os líderes</option></select>
       <select class="filter-select" id="filtro-regiao" onchange="carregarEmendas()"><option value="">Todas as regiões</option></select>
-      <span style="display:inline-flex;align-items:center;gap:6px;">
-        <span class="hint">Sem movimento há</span>
-        <input type="number" id="filtro-parada" min="1" placeholder="dias" list="dias-opcoes" oninput="debounceBusca(); marcarChips()">
-        <span class="chips" id="chips-dias">
-          <button type="button" class="chip" data-d="7">7</button><button type="button" class="chip" data-d="15">15</button><button type="button" class="chip" data-d="30">30</button><button type="button" class="chip" data-d="60">60</button><button type="button" class="chip" data-d="90">90</button>
-        </span>
-      </span>
       <label class="check"><input type="checkbox" id="filtro-incompletos" onchange="carregarEmendas()"> Dados incompletos</label>
-      <button class="btn btn-ghost btn-sm" onclick="limparFiltros()" style="margin-left:auto;">Limpar filtros</button>
     </div>
   </section>
 
-  <section class="table-card">
+  <!-- Toolbar demandas -->
+  <section class="toolbar" id="toolbar-demandas" hidden>
+    <div class="toolbar-row">
+      <div class="search-wrap">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="busca-dem" placeholder="Buscar por município, destinatário, objeto, FPE, convênio..." oninput="debounceBuscaDem()">
+      </div>
+      <button class="btn btn-ghost btn-sm" id="btn-filtros-demandas" onclick="toggleFiltros('demandas')">Filtros</button>
+      <button class="btn btn-ghost btn-sm" onclick="limparFiltrosDem()">Limpar</button>
+    </div>
+    <div class="toolbar-row filtros-painel" id="filtros-painel-demandas" hidden>
+      <select class="filter-select" id="filtro-status-dem" onchange="carregarDemandas()"><option value="">Todos os status</option></select>
+      <select class="filter-select" id="filtro-ano-dem" onchange="carregarDemandas()"><option value="">Todos os anos</option></select>
+      <select class="filter-select" id="filtro-secretaria-dem" onchange="carregarDemandas()"><option value="">Todas as secretarias</option></select>
+      <select class="filter-select" id="filtro-municipio-dem" onchange="carregarDemandas()"><option value="">Todos os municípios</option></select>
+    </div>
+  </section>
+
+  <!-- Tabela emendas -->
+  <section class="table-card" id="tabela-emendas">
     <div class="table-header"><span><strong id="contador">0</strong> <span id="contador-label">emendas</span></span></div>
     <div id="tabela-wrap">
       <table>
         <thead>
           <tr>
-            <th class="sortable" data-sort="numero_emenda">Emenda</th>
+            <th class="sortable" data-sort="ano">Emenda</th>
             <th class="sortable" data-sort="secretaria">Secretaria</th>
             <th class="sortable" data-sort="municipio">Município / Região</th>
             <th class="sortable" data-sort="entidade">Entidade / CNPJ</th>
@@ -116,35 +141,9 @@
     </div>
     <div class="empty" id="empty" hidden><div class="empty-title">Nenhuma emenda encontrada</div><div>Ajuste os filtros ou cadastre uma nova emenda.</div></div>
   </section>
-</section>
 
-<!-- ================= DEMANDAS ================= -->
-<section id="view-demandas" hidden>
-  <div class="page-title">
-    <span>Demandas <small>solicitações ao estado</small></span>
-  </div>
-
-  <section class="kpis">
-    <div class="kpi"><div class="kpi-label">Total de demandas</div><div class="kpi-value" id="dem-kpi-total">—</div></div>
-    <div class="kpi"><div class="kpi-label">Valor total</div><div class="kpi-value small" id="dem-kpi-valor">—</div></div>
-    <div class="kpi"><div class="kpi-label">Aprovadas</div><div class="kpi-value" id="dem-kpi-aprovadas">—</div></div>
-  </section>
-
-  <section class="toolbar">
-    <div class="toolbar-row">
-      <div class="search-wrap">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input type="text" id="busca-dem" placeholder="Buscar por município, destinatário, objeto, FPE, convênio..." oninput="debounceBuscaDem()">
-      </div>
-      <select class="filter-select" id="filtro-status-dem" onchange="carregarDemandas()"><option value="">Todos os status</option></select>
-      <select class="filter-select" id="filtro-ano-dem" onchange="carregarDemandas()"><option value="">Todos os anos</option></select>
-      <select class="filter-select" id="filtro-secretaria-dem" onchange="carregarDemandas()"><option value="">Todas as secretarias</option></select>
-      <select class="filter-select" id="filtro-municipio-dem" onchange="carregarDemandas()"><option value="">Todos os municípios</option></select>
-      <button class="btn btn-ghost btn-sm" onclick="limparFiltrosDem()" style="margin-left:auto;">Limpar filtros</button>
-    </div>
-  </section>
-
-  <section class="table-card">
+  <!-- Tabela demandas -->
+  <section class="table-card" id="tabela-demandas-card" hidden>
     <div class="table-header"><span><strong id="dem-contador">0</strong> <span id="dem-contador-label">demandas</span></span></div>
     <div id="dem-tabela-wrap">
       <table>
@@ -214,7 +213,7 @@
 </main>
 </div>
 
-<!-- ============================================================ MODAL: FICHA EMENDA -->
+<!-- ============================================================ MODAIS -->
 <div class="modal-overlay" id="modal-ficha">
   <div class="modal" style="max-width: 780px;">
     <div class="modal-header">
@@ -233,7 +232,6 @@
   </div>
 </div>
 
-<!-- ============================================================ MODAL: FORM EMENDA -->
 <div class="modal-overlay" id="modal-overlay">
   <div class="modal">
     <div class="modal-header">
@@ -243,7 +241,6 @@
     <form id="form-emenda" onsubmit="salvarEmenda(event)">
       <div class="modal-body">
         <input type="hidden" id="f-id"><input type="hidden" id="f-versao">
-
         <div class="form-section">
           <div class="form-section-title">Identificação e localidade</div>
           <div class="form-grid">
@@ -258,7 +255,6 @@
             <div class="form-group full"><label>Referência</label><textarea id="f-referencia" rows="2"></textarea></div>
           </div>
         </div>
-
         <div class="form-section">
           <div class="form-section-title">Entidade beneficiária</div>
           <div class="form-grid">
@@ -266,7 +262,6 @@
             <div class="form-group"><label>CNPJ</label><input type="text" id="f-cnpj"></div>
           </div>
         </div>
-
         <div class="form-section">
           <div class="form-section-title">Contatos</div>
           <div class="form-grid">
@@ -278,7 +273,6 @@
             <div class="form-group"><label>E-mail do ponto focal</label><input type="email" id="f-pf-email"></div>
           </div>
         </div>
-
         <div class="form-section">
           <div class="form-section-title">Detalhes</div>
           <div class="form-grid">
@@ -308,7 +302,6 @@
   </div>
 </div>
 
-<!-- ============================================================ MODAL: DEMANDA FORM -->
 <div class="modal-overlay" id="modal-demanda">
   <div class="modal">
     <div class="modal-header">
@@ -318,7 +311,6 @@
     <form id="form-demanda" onsubmit="salvarDemanda(event)">
       <div class="modal-body">
         <input type="hidden" id="d-id"><input type="hidden" id="d-versao">
-
         <div class="form-section">
           <div class="form-section-title">Identificação e localidade</div>
           <div class="form-grid">
@@ -336,7 +328,6 @@
             </div>
           </div>
         </div>
-
         <div class="form-section">
           <div class="form-section-title">Objeto e valores</div>
           <div class="form-grid">
@@ -345,7 +336,6 @@
             <div class="form-group"><label>Proposta FPE</label><input type="text" id="d-proposta-fpe"></div>
           </div>
         </div>
-
         <div class="form-section">
           <div class="form-section-title">Documentos e pagamento</div>
           <div class="form-grid">
@@ -354,7 +344,6 @@
             <div class="form-group"><label>Data do pagamento</label><input type="date" id="d-data-pagto"></div>
           </div>
         </div>
-
         <div class="form-section">
           <div class="form-section-title">Observações</div>
           <div class="form-grid">
@@ -370,7 +359,6 @@
   </div>
 </div>
 
-<!-- ============================================================ MODAL: DEMANDA FICHA -->
 <div class="modal-overlay" id="modal-ficha-demanda">
   <div class="modal" style="max-width: 720px;">
     <div class="modal-header">
@@ -389,7 +377,6 @@
   </div>
 </div>
 
-<!-- ============================================================ MODAL: IMPORTAR -->
 <div class="modal-overlay" id="modal-importar">
   <div class="modal" style="max-width: 720px;">
     <div class="modal-header">
@@ -424,7 +411,6 @@
   </div>
 </div>
 
-<!-- ============================================================ MODAL: USUÁRIOS -->
 <div class="modal-overlay" id="modal-usuarios">
   <div class="modal" style="max-width: 640px;">
     <div class="modal-header"><div class="modal-title">Usuários</div>
@@ -443,7 +429,6 @@
   </div>
 </div>
 
-<!-- ============================================================ MODAL: SENHA -->
 <div class="modal-overlay" id="modal-senha">
   <div class="modal" style="max-width: 420px;">
     <div class="modal-header"><div class="modal-title">Alterar senha</div>
@@ -457,7 +442,6 @@
   </div>
 </div>
 
-<!-- ============================================================ MODAL: REGIÕES -->
 <div class="modal-overlay" id="modal-regioes">
   <div class="modal" style="max-width: 560px;">
     <div class="modal-header"><div class="modal-title">Lista de regiões por município</div>
@@ -473,7 +457,6 @@
 
 <datalist id="lista-regioes"></datalist>
 <datalist id="lista-municipios"></datalist>
-<datalist id="dias-opcoes"><option value="7"><option value="15"><option value="30"><option value="60"><option value="90"></datalist>
 <div class="toast" id="toast"><span id="toast-msg"></span></div>
 
 <script src="{{ url_for('static', filename='js/core.js') }}"></script>
