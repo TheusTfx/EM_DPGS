@@ -61,13 +61,11 @@
 <section id="view-emendas">
   <div class="page-title">
     <span>Emendas <small id="subtitulo-modo">controle de emendas parlamentares</small></span>
-    <label class="check" style="margin-left:auto;">
-      <input type="checkbox" id="mostrar-demandas" onchange="alternarDemandas()"> Demandas extras
-    </label>
   </div>
 
   <!-- KPIs emendas -->
   <section class="kpis" id="kpis-emendas">
+    <div class="kpi"><div class="kpi-label">Total de emendas</div><div class="kpi-value" id="kpi-total">—</div></div>
     <div class="kpi"><div class="kpi-label">Aguardando</div><div class="kpi-value" id="kpi-aguardando">—</div></div>
     <div class="kpi"><div class="kpi-label">Pagas</div><div class="kpi-value" id="kpi-pagas">—</div></div>
   </section>
@@ -97,6 +95,7 @@
       <select class="filter-select" id="filtro-lider" onchange="carregarEmendas()"><option value="">Todos os líderes</option></select>
       <select class="filter-select" id="filtro-regiao" onchange="carregarEmendas()"><option value="">Todas as regiões</option></select>
       <label class="check"><input type="checkbox" id="filtro-incompletos" onchange="carregarEmendas()"> Dados incompletos</label>
+      <label class="check"><input type="checkbox" id="mostrar-demandas" onchange="alternarDemandas()"> Demandas extras</label>
     </div>
   </section>
 
@@ -115,6 +114,7 @@
       <select class="filter-select" id="filtro-ano-dem" onchange="carregarDemandas()"><option value="">Todos os anos</option></select>
       <select class="filter-select" id="filtro-secretaria-dem" onchange="carregarDemandas()"><option value="">Todas as secretarias</option></select>
       <select class="filter-select" id="filtro-municipio-dem" onchange="carregarDemandas()"><option value="">Todos os municípios</option></select>
+      <label class="check"><input type="checkbox" id="mostrar-demandas-dem" checked onchange="alternarDemandas(false)"> Demandas extras</label>
     </div>
   </section>
 
