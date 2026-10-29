@@ -28,6 +28,7 @@ def init_db():
         with conn.cursor() as cur:
             _criar_tabelas(cur)
             _migrar_emendas(cur)
+            _migrar_logs(cur)
             _criar_admin(cur)
             _limpar_sessoes(cur)
         conn.commit()
@@ -118,6 +119,11 @@ def _migrar_emendas(cur):
         except Exception:
             cur.execute("ROLLBACK TO SAVEPOINT add_unique")
             print("AVISO: duplicatas em (ano,numero_emenda). Constraint nao criada.")
+
+
+def _migrar_logs(cur):
+    """Adiciona a coluna demanda_id na tabela logs (para rastrear ações de demandas)."""
+    cur.execute("ALTER TABLE logs ADD COLUMN IF NOT EXISTS demanda_id INTEGER")
 
 
 def _criar_admin(cur):
