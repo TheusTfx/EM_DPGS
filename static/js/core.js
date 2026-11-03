@@ -26,6 +26,21 @@ const painelModo = { lider: 'n', municipio: 'n', regiao: 'n', secretaria: 'n' };
 // ---------- Utilitários ----------
 const $ = id => document.getElementById(id);
 
+// Versões tolerantes: não quebram se o elemento não existir no HTML
+function _hidden(id, valor) {
+  const el = $(id);
+  if (el) el.hidden = valor;
+  else console.warn('Elemento não encontrado no HTML: #' + id);
+}
+function _checked(id, valor) {
+  const el = $(id);
+  if (el) el.checked = valor;
+}
+function _modoDemandas() {
+  const el = $('mostrar-demandas');
+  return !!(el && el.checked);
+}
+
 function fmtMoney(v) {
   return 'R$ ' + (Number(v) || 0).toLocaleString('pt-BR',
     { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -175,8 +190,8 @@ function sair(expirou) {
   emendasCache = [];
   demandasCache = [];
   painelDados = null;
-  if ($('mostrar-demandas')) $('mostrar-demandas').checked = false;
-  if ($('mostrar-demandas-dem')) $('mostrar-demandas-dem').checked = false;
+  _checked('mostrar-demandas', false);
+  _checked('mostrar-demandas-dem', false);
   $('user-dropdown').hidden = true;
   mostrarLogin();
   if (expirou) $('l-erro').textContent = 'Sessão expirada. Entre novamente.';
@@ -217,44 +232,55 @@ function mostrarView(v) {
   if (v === 'atividade') carregarLogs(true);
   if (v === 'lixeira') carregarLixeira();
   if (v === 'emendas') {
-    const modoDemandas = $('mostrar-demandas').checked;
-    $('mostrar-demandas-dem').checked = modoDemandas;
+    const modoDemandas = _modoDemandas();
 
-    $('kpis-emendas').hidden = modoDemandas;
-    $('kpis-demandas').hidden = !modoDemandas;
-    $('toolbar-emendas').hidden = modoDemandas;
-    $('toolbar-demandas').hidden = !modoDemandas;
-    $('tabela-emendas').hidden = modoDemandas;
-    $('tabela-demandas-card').hidden = !modoDemandas;
-    $('subtitulo-modo').textContent = modoDemandas
-
-    const btnNovo = $('btn-novo');
-    const btnImp = $('btn-importar-emendas');
+    // Primeiro dispara o carregamento dos dados, para que nada
+    // no ajuste visual abaixo possa impedir a lista de aparecer.
     if (modoDemandas) {
-      btnNovo.textContent = 'Nova demanda';
-      btnNovo.onclick = function () { abrirModalDemanda(); };
-      if (btnImp) btnImp.hidden = true;
       carregarDemandas();
       carregarFiltrosDemandas();
     } else {
-      btnNovo.textContent = 'Nova emenda';
-      btnNovo.onclick = function () { abrirModal(); };
-      if (btnImp) btnImp.hidden = false;
       carregarEmendas();
       carregarFiltros();
     }
+
+    _checked('mostrar-demandas-dem', modoDemandas);
+    _hidden('kpis-emendas', modoDemandas);
+    _hidden('kpis-demandas', !modoDemandas);
+    _hidden('toolbar-emendas', modoDemandas);
+    _hidden('toolbar-demandas', !modoDemandas);
+    _hidden('tabela-emendas', modoDemandas);
+    _hidden('tabela-demandas-card', !modoDemandas);
+
+    // subtítulo é opcional: só atualiza se existir no HTML
+    const sub = $('subtitulo-modo');
+    if (sub) {
+      sub.textContent = modoDemandas
+        ? 'demandas extras'
+        : 'controle de emendas parlamentares';
+    }
+
+    const btnNovo = $('btn-novo');
+    const btnImp = $('btn-importar-emendas');
+    if (btnNovo) {
+      btnNovo.textContent = modoDemandas ? 'Nova demanda' : 'Nova emenda';
+      btnNovo.onclick = modoDemandas
+        ? function () { abrirModalDemanda(); }
+        : function () { abrirModal(); };
+    }
+    if (btnImp) btnImp.hidden = modoDemandas;
   }
 }
 
 // valor === false  -> desliga (usado pelo checkbox dentro dos filtros de demandas)
 // valor indefinido -> segue o checkbox dos filtros de emendas
 function alternarDemandas(valor) {
-  const ligado = (valor === false) ? false : $('mostrar-demandas').checked;
-  $('mostrar-demandas').checked = ligado;
-  $('mostrar-demandas-dem').checked = ligado;
+  const ligado = (valor === false) ? false : _modoDemandas();
+  _checked('mostrar-demandas', ligado);
+  _checked('mostrar-demandas-dem', ligado);
   mostrarView('emendas');
   // abre o painel de filtros das demandas para o usuário ver onde desligar
-  if (ligado) $('filtros-painel-demandas').hidden = false;
+  if (ligado) _hidden('filtros-painel-demandas', false);
 }
 
 function toggleFiltros(qual) {
