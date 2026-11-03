@@ -25,6 +25,10 @@ function listaMudancas(itens) {
 }
 
 function blocoImport(chave, v) {
+  if (v.tipo === 'ausente') {
+    return '<div class="imp-bloco"><div class="imp-bloco-h">Aba ' + escapeHTML(chave) + '</div><div class="imp-bloco-b">' +
+      '<span style="color:var(--muted);">Aba não encontrada na planilha. Será ignorada.</span></div></div>';
+  }
   if (v.tipo === 'contatos') {
     return '<div class="imp-bloco"><div class="imp-bloco-h">Contatos (aba ENTIDADES)</div><div class="imp-bloco-b">' +
       '<b>' + v.encontradas + '</b> entidades localizadas · <b>' + v.alteradas + '</b> emendas com contatos novos ou alterados' +
@@ -33,13 +37,22 @@ function blocoImport(chave, v) {
       (v.nao_encontradas.length ? '<details><summary>Ver entidades sem correspondência</summary><div class="imp-lista">' + v.nao_encontradas.map(n => '<div class="it">' + escapeHTML(n) + '</div>').join('') + '</div></details>' : '') + '</div></div>';
   }
   const nc = Object.entries(v.nao_consta || {}).map(([k, n]) => k + ': ' + n).join(' · ');
-  return '<div class="imp-bloco"><div class="imp-bloco-h">Aba ' + chave + ' · ' + v.total_linhas + ' linhas</div><div class="imp-bloco-b">' +
+  const ign = v.lista_ignoradas || [];
+  const avisos = v.avisos || [];
+  return '<div class="imp-bloco"><div class="imp-bloco-h">Aba ' + escapeHTML(chave) + ' · ' + v.total_linhas + ' linhas válidas</div><div class="imp-bloco-b">' +
     '<span class="tag nova">' + v.novas + ' novas</span><span class="tag alt">' + v.alteradas + ' alteradas</span><span class="tag">' + v.iguais + ' sem alteração</span>' +
     (v.ignoradas ? '<span class="tag">' + v.ignoradas + ' ignoradas</span>' : '') +
+    (v.duplicadas ? '<span class="tag">' + v.duplicadas + ' repetidas na planilha</span>' : '') +
     '<div style="margin-top:6px;color:var(--muted);">' + v.pagas + ' pagas · ' + v.aguardando + ' aguardando' + (v.sem_numero ? ' · ' + v.sem_numero + ' sem nº na planilha' : '') + '</div>' +
     (nc ? '<div class="hint" style="margin-top:4px;">Campos sem informação ("não consta na planilha"): ' + escapeHTML(nc) + '</div>' : '') +
     (v.exemplos_novas.length ? '<details><summary>Ver exemplos de emendas novas</summary><div class="imp-lista">' + v.exemplos_novas.map(n => '<div class="it"><b>' + escapeHTML(fmtNumero(n.numero)) + '</b> · ' + escapeHTML(n.municipio) + ' · ' + fmtMoney(n.valor) + '</div>').join('') + '</div></details>' : '') +
     (v.lista_alteradas.length ? '<details><summary>Ver alterações (' + v.alteradas + (v.alteradas > v.lista_alteradas.length ? ', mostrando ' + v.lista_alteradas.length : '') + ')</summary><div class="imp-lista">' + listaMudancas(v.lista_alteradas) + '</div></details>' : '') +
+    (v.ignoradas ? '<details><summary>Ver linhas ignoradas (' + v.ignoradas + ')</summary><div class="imp-lista">' +
+      ign.map(i => '<div class="it">Linha ' + i.linha + ' · ' + escapeHTML(i.motivo) + '</div>').join('') +
+      (v.ignoradas > ign.length ? '<div class="it faint">… e mais ' + (v.ignoradas - ign.length) + '</div>' : '') + '</div></details>' : '') +
+    (avisos.length ? '<details><summary style="color:var(--warn);">Ver avisos (' + (v.n_avisos || avisos.length) + ')</summary><div class="imp-lista">' +
+      avisos.map(a => '<div class="it">' + escapeHTML(a) + '</div>').join('') +
+      ((v.n_avisos || 0) > avisos.length ? '<div class="it faint">… e mais ' + (v.n_avisos - avisos.length) + '</div>' : '') + '</div></details>' : '') +
     '</div></div>';
 }
 
@@ -63,8 +76,8 @@ async function previewImportar() {
     const abas = data.abas, chaves = Object.keys(abas);
     box.innerHTML = chaves.map(k => blocoImport(k, abas[k])).join('');
     const mudancas = chaves.reduce((s, k) => s + (abas[k].novas || 0) + (abas[k].alteradas || 0), 0);
-    previewOk = true;
-    $('btn-importar').disabled = false;
+    previewOk = mudancas > 0;
+    $('btn-importar').disabled = !previewOk;
     if (!mudancas) box.insertAdjacentHTML('afterbegin', '<div class="hint" style="margin-top:8px;">Nenhuma diferença em relação ao que já está no sistema.</div>');
   } catch (err) {
     box.innerHTML = '<span style="color:var(--bad);">' + escapeHTML(err.message) + '</span>';
@@ -81,7 +94,7 @@ async function executarImportar() {
   btn.textContent = 'Importando…';
   try {
     const data = await chamarImportacao('/api/importar');
-    toast(data.importadas + ' emendas novas ou atualizadas');
+    toast(data.criadas + ' novas, ' + data.atualizadas + ' atualizadas, ' + data.sem_alteracao + ' sem alteração');
     fecharModalImportar();
     carregarTudo();
     carregarRegioes();
@@ -209,12 +222,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
   document.querySelectorAll('#nav button').forEach(b =>
     b.addEventListener('click', () => mostrarView(b.dataset.view)));
-  document.querySelectorAll('#chips-dias .chip').forEach(c =>
-    c.addEventListener('click', () => {
-      $('filtro-parada').value = ($('filtro-parada').value === c.dataset.d) ? '' : c.dataset.d;
-      marcarChips();
-      carregarEmendas();
-    }));
 
   setupOverlayClose($('modal-overlay'), fecharModal);
   setupOverlayClose($('modal-ficha'), fecharFicha);
