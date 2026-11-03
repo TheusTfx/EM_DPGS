@@ -82,7 +82,7 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
 .btn-icon:hover { background: var(--bg); color: var(--text); border-color: var(--border); }
 .btn-icon.danger:hover { background: var(--bad-bg); color: var(--bad); border-color: #dcb4b3; }
 
-.table-card { background: var(--surface); border: 1px solid var(--border-soft);}
+.table-card { background: var(--surface); border: 1px solid var(--border-soft) nowrap;}
 .table-header { padding: 10px 16px; border-bottom: 1px solid var(--border-soft); display: flex; align-items: center; justify-content: space-between; font-size: 13px; color: var(--muted); background: #f8f9fb; }
 .table-header strong { color: var(--text); font-weight: 600; }
 table { width: 100%; border-collapse: collapse; min-width: 1200px; }
