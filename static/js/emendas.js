@@ -122,9 +122,10 @@ function renderTabela() {
 function atualizarKPIs() {
   const aguardando = emendasCache.filter(e => e.situacao === 'Aguardando').length;
   const pagas = emendasCache.filter(e => e.situacao === 'Pago').length;
-  $('kpi-total').textContent = emendasCache.length;
-  $('kpi-aguardando').textContent = aguardando;
-  $('kpi-pagas').textContent = pagas;
+  const set = (id, v) => { const el = $(id); if (el) el.textContent = v; };
+  set('kpi-total', emendasCache.length);
+  set('kpi-aguardando', aguardando);
+  set('kpi-pagas', pagas);
 }
 
 // ---------- Ficha ----------
