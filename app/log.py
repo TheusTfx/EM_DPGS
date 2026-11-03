@@ -9,6 +9,15 @@ from .auth import usuario_atual
 
 def registrar_log(acao, emenda_id=None, demanda_id=None, numero=None,
                   municipio=None, ano=None, detalhe=None, mudancas=None):
+    """Insere um registro de auditoria. Falhas aqui não derrubam a operação
+    principal (a transação principal já foi commitada antes da chamada).
+
+    Se acao='editou' e nada efetivamente mudou (mudancas vazio), não grava —
+    evita ruído no histórico gerado por PUTs idempotentes (ex.: abrir e fechar
+    o seletor inline de situação sem trocar o valor)."""
+    if acao == 'editou' and not mudancas:
+        return
+
     u = usuario_atual()
     db = get_db()
     try:
