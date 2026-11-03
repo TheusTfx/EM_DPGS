@@ -1,3 +1,4 @@
+# app/config.py
 import os
 
 NSC = "não consta na planilha"
@@ -8,3 +9,5 @@ STATUS_DEMANDAS = ['Enviado ao Estado', 'Retornada', 'Aprovada', 'Aguardando']
 DATABASE_URL = os.environ.get('DATABASE_URL')
 
 SESSION_DAYS = 7
+
+DATA_FORMAT = '%Y-%m-%d'
