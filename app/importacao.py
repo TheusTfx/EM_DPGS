@@ -1,3 +1,4 @@
+# app/importacao.py
 import hashlib
 import re
 import unicodedata
@@ -8,6 +9,7 @@ import pandas as pd
 
 from .config import NSC, PREFIXO_OBS
 from .regioes import _sem_acento, _regiao_do_mapa
+from .utils import fmt_brl
 
 
 class AbaAusente(ValueError):
@@ -117,14 +119,18 @@ def _ano(v):
         return None
 
 
-def _fmt_brl(v):
-    s = f'{float(v or 0):,.2f}'
-    return 'R$ ' + s.replace(',', 'X').replace('.', ',').replace('X', '.')
-
-
 def _derivar_situacao(texto_bruto):
-    if texto_bruto and re.match(r'^\s*PAGO\b', str(texto_bruto).upper()):
+    """Traduz situação bruta da planilha para uma das SITUACOES canônicas.
+    Antes só reconhecia PAGO; agora também CANCELADA e EMPENHADO."""
+    if not texto_bruto:
+        return "Aguardando"
+    t = str(texto_bruto).upper().strip()
+    if re.match(r'^PAGO\b', t):
         return "Pago"
+    if 'CANCELAD' in t:
+        return "Cancelada"
+    if 'EMPENHAD' in t:
+        return "Empenhado"
     return "Aguardando"
 
 
@@ -322,12 +328,12 @@ def comparar_com_banco(cur, aba, registros):
 
         ve_antigo = round(float(ex['valor_empenhado'] or 0), 2)
         if ve_antigo != round(r['valor_empenhado'], 2):
-            mud.append(_mud('valor_empenhado', _fmt_brl(ve_antigo), _fmt_brl(r['valor_empenhado'])))
+            mud.append(_mud('valor_empenhado', fmt_brl(ve_antigo), fmt_brl(r['valor_empenhado'])))
 
         vp_antigo = round(float(ex['valor_pago'] or 0), 2)
         vp_novo = max(vp_antigo, round(r['valor_pago'], 2))
         if vp_novo != vp_antigo:
-            mud.append(_mud('valor_pago', _fmt_brl(vp_antigo), _fmt_brl(vp_novo)))
+            mud.append(_mud('valor_pago', fmt_brl(vp_antigo), fmt_brl(vp_novo)))
 
         for c in CAMPOS_TEXTO:
             antigo = ex[c] or NSC
@@ -375,12 +381,15 @@ def _montar_upsert(tem_situacao, returning=False):
         "atualizado_em = EXCLUDED.atualizado_em",
     ]
     for c in CAMPOS_TEXTO:
+        # NSC vindo da planilha não sobrescreve o que já existe no banco
         sets.append(
             f"{c} = CASE WHEN EXCLUDED.{c} = '{NSC}' "
             f"THEN COALESCE(NULLIF(emendas.{c}, ''), EXCLUDED.{c}) "
             f"ELSE EXCLUDED.{c} END"
         )
     if tem_situacao:
+        # Cancelada nunca é revertida por importação; observações antigas de
+        # "Situação (planilha)" são limpas antes de concatenar a nova
         sets += [
             "situacao = CASE WHEN emendas.situacao = 'Cancelada' "
             "THEN emendas.situacao ELSE EXCLUDED.situacao END",
@@ -389,6 +398,7 @@ def _montar_upsert(tem_situacao, returning=False):
             f"{_SQL_OBS_SEM_LINHA_ANTIGA}, EXCLUDED.observacoes), ' ' || chr(10)), '')",
         ]
     sets += [
+        # Nunca reduz o valor pago já registrado
         "valor_pago = GREATEST(emendas.valor_pago, EXCLUDED.valor_pago)",
         "versao = emendas.versao + 1",
     ]
