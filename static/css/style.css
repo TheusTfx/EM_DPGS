@@ -45,7 +45,7 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
 .page-title { font-size: 17px; font-weight: 600; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .page-title small { font-weight: 400; color: var(--muted); font-size: 13px; }
 
-.kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 16px; }
 .kpis.six { grid-template-columns: repeat(6, 1fr); }
 .kpi { background: var(--surface); border: 1px solid var(--border-soft); border-top: 2px solid var(--accent); padding: 12px 16px; }
 .kpi-label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 4px; }
@@ -82,14 +82,15 @@ input, select, textarea { font-family: inherit; font-size: 14px; }
 .btn-icon:hover { background: var(--bg); color: var(--text); border-color: var(--border); }
 .btn-icon.danger:hover { background: var(--bad-bg); color: var(--bad); border-color: #dcb4b3; }
 
-.table-card { background: var(--surface); border: 1px solid var(--border-soft);}
-#tabela-wrap, 
-#dem-tabela-wrap { 
-  overflow-x: auto; 
-}
+/* ============================================================
+   Tabelas
+   ============================================================ */
+.table-card { background: var(--surface); border: 1px solid var(--border-soft); }
+#tabela-wrap, #dem-tabela-wrap { overflow-x: auto; width: 100%; }
 .table-header { padding: 10px 16px; border-bottom: 1px solid var(--border-soft); display: flex; align-items: center; justify-content: space-between; font-size: 13px; color: var(--muted); background: #f8f9fb; }
 .table-header strong { color: var(--text); font-weight: 600; }
-table { width: 100%; border-collapse: collapse; min-width: 1200px; }
+
+table { width: 100%; border-collapse: collapse; min-width: 1300px; }
 thead th { text-align: left; padding: 9px 16px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); background: #f8f9fb; border-bottom: 1px solid var(--border); white-space: nowrap; }
 thead th.right, td.right { text-align: right; }
 thead th.sortable { cursor: pointer; user-select: none; }
@@ -97,6 +98,7 @@ thead th.sortable:hover { background: var(--neutral-bg); color: var(--text); }
 thead th.sortable::after { content: '⇅'; margin-left: 5px; font-size: 10px; opacity: .35; }
 thead th.sorted-desc::after { content: '▼'; opacity: 1; color: var(--accent); }
 thead th.sorted-asc::after { content: '▲'; opacity: 1; color: var(--accent); }
+
 tbody tr { border-bottom: 1px solid var(--border-soft); cursor: pointer; }
 tbody tr:last-child { border-bottom: none; }
 tbody tr:hover { background: #f7f8fa; }
@@ -106,12 +108,16 @@ tbody td { padding: 11px 16px; vertical-align: middle; }
 .cell-obj { max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cell-value { text-align: right; font-variant-numeric: tabular-nums; font-weight: 500; white-space: nowrap; }
 .cell-value small { display: block; font-weight: 400; font-size: 11.5px; color: var(--muted); }
-.cell-actions { 
-  width: 1%; 
-  min-width: 90px; 
+
+/* Força a coluna de ações e o cabeçalho dela a não serem esmagados */
+.cell-actions, 
+th:last-child { 
+  width: 100px; 
+  min-width: 100px; 
   text-align: right; 
   white-space: nowrap; 
 }
+
 .row-actions { display: flex; gap: 2px; justify-content: flex-end; opacity: 0; transition: opacity .12s; }
 tbody tr:hover .row-actions { opacity: 1; }
 .faint { color: var(--faint); }
@@ -233,24 +239,32 @@ svg text { font-family: inherit; }
   .form-grid, .ficha-grid { grid-template-columns: 1fr; } .form-group.span-2 { grid-column: 1; }
   .log-item { grid-template-columns: 1fr; gap: 2px; }
   .filter-select { min-width: 0; flex: 1; }
-  thead { display: none; } table { min-width: 0; } tbody tr { display: block; padding: 10px 0; border-bottom: 2px solid var(--border); }
-  tbody td { display: block; padding: 3px 14px; } .cell-value, .cell-actions { text-align: left; } td.right { text-align: left; }
-  .row-actions { opacity: 1; justify-content: flex-start; margin-top: 6px; } .cell-obj { max-width: none; white-space: normal; }
+  
+  /* Desfaz a tabela normal e vira cards no mobile */
+  thead { display: none; } 
+  table { min-width: 0; } 
+  tbody tr { display: block; padding: 10px 0; border-bottom: 2px solid var(--border); }
+  tbody td { display: block; padding: 3px 14px; } 
+  
+  /* Reseta a coluna de ações no mobile para alinhar à esquerda */
+  .cell-actions, th:last-child { 
+    text-align: left; 
+    width: auto; 
+    min-width: 0; 
+    padding-left: 14px;
+  } 
+  td.right { text-align: left; }
+  .cell-value { text-align: left; }
+  .row-actions { opacity: 1; justify-content: flex-start; margin-top: 6px; } 
+  .cell-obj { max-width: none; white-space: normal; }
 }
+
 /* Botão Filtros com indicador de filtros ativos */
 #btn-filtros-emendas.on,
 #btn-filtros-demandas.on {
   background: var(--accent);
   color: #fff;
   border-color: var(--accent);
-}
-
-/* KPIs auto-ajustáveis (funciona com 2, 3 ou 6) */
-.kpis {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 12px;
-  margin-bottom: 16px;
 }
 
 /* Painel de filtros colapsável */
