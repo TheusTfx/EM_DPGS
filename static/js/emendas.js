@@ -3,6 +3,9 @@
 // Depende de: core.js
 // ============================================================
 
+// Situações válidas (mantém em sincronia com SITUACOES do backend)
+const SITUACOES_EMENDA = ['Aguardando', 'Empenhado', 'Pago', 'Cancelada'];
+
 // ---------- Listagem ----------
 function debounceBusca() {
   clearTimeout(debounceTimer);
@@ -92,6 +95,84 @@ function getListaOrdenada() {
   });
 }
 
+// ---------- Célula de situação (inline edit) ----------
+function celulaSituacao(e) {
+  const cur = SITUACOES_EMENDA.includes(e.situacao) ? e.situacao : 'Aguardando';
+  const opts = SITUACOES_EMENDA.map(s =>
+    '<option value="' + s + '"' + (s === cur ? ' selected' : '') + '>' + s + '</option>'
+  ).join('');
+  return '<select class="status status-select status-' + _slugSituacao(cur) + '"' +
+    ' data-id="' + e.id + '"' +
+    ' data-versao="' + (e.versao || 1) + '"' +
+    ' title="Clique para alterar a situação"' +
+    ' onclick="event.stopPropagation()"' +
+    ' onmousedown="event.stopPropagation()"' +
+    ' onchange="alterarSituacaoInline(event)">' +
+    opts +
+  '</select>';
+}
+
+async function alterarSituacaoInline(ev) {
+  ev.stopPropagation();
+  const sel = ev.target;
+  if (!sel || !sel.dataset || !sel.dataset.id) return;
+  const id = parseInt(sel.dataset.id);
+  const versao = parseInt(sel.dataset.versao) || 1;
+  const nova = sel.value;
+  const e = emendasCache.find(x => x.id === id);
+  if (!e) return;
+  if (nova === (e.situacao || '')) return; // sem mudança real
+
+  sel.disabled = true;
+  sel.classList.add('status-loading');
+
+  try {
+    const resp = await api('/api/emendas/' + id, {
+      method: 'PUT',
+      json: { situacao: nova, versao: versao }
+    });
+
+    // sucesso — atualiza cache local e estado visual
+    e.situacao = nova;
+    e.versao = versao + 1;
+    if (resp.auto_pago) e.valor_pago = resp.valor_pago;
+    if (resp.auto_pago_em) e.pago_em = resp.pago_em;
+
+    sel.className = 'status status-select status-' + _slugSituacao(nova);
+    sel.dataset.versao = e.versao;
+    sel.disabled = false;
+
+    // auto_pago: atualiza a célula de valor na mesma linha
+    if (resp.auto_pago) {
+      const tr = sel.closest('tr');
+      if (tr) {
+        const cellValor = tr.querySelector('.cell-value');
+        if (cellValor) {
+          cellValor.innerHTML = fmtMoney(e.valor_empenhado) +
+            '<small>Pago: ' + fmtMoney(e.valor_pago) + '</small>';
+        }
+      }
+      toast('Pago: valor pago ajustado para ' + fmtMoney(e.valor_pago), 'success');
+    } else {
+      toast('Situação alterada para ' + nova, 'success');
+    }
+
+    atualizarKPIs();
+  } catch (err) {
+    // reverte visual
+    sel.value = e.situacao || 'Aguardando';
+    sel.disabled = false;
+    sel.classList.remove('status-loading');
+    if (err.status === 409) {
+      toast('Emenda alterada em outra aba. Recarregando lista...', 'error');
+      await carregarEmendas();
+    } else {
+      toast('Erro ao alterar situação: ' + err.message, 'error');
+    }
+  }
+}
+
+// ---------- Tabela ----------
 function renderTabela() {
   const tbody = $('tbody'), lista = getListaOrdenada();
   $('contador').textContent = lista.length;
@@ -102,14 +183,22 @@ function renderTabela() {
   lista.forEach(e => {
     const tr = document.createElement('tr');
     tr.addEventListener('click', () => abrirFicha(e.id));
+
+    // Coluna "Emenda": se S/N, mostra só o ano (sem sub-linha)
+    const ehSN = String(e.numero_emenda || '').startsWith('S/N');
+    const cellNumero = ehSN
+      ? '<div class="cell-main">' + escapeHTML(String(e.ano || '—')) + '</div>'
+      : '<div class="cell-main">' + escapeHTML(e.numero_emenda) + '</div>' +
+        '<div class="cell-sub">' + escapeHTML(e.ano) + '</div>';
+
     tr.innerHTML =
-      '<td><div class="cell-main">' + escapeHTML(fmtNumero(e.numero_emenda)) + '</div><div class="cell-sub">' + escapeHTML(e.ano) + '</div></td>' +
+      '<td>' + cellNumero + '</td>' +
       '<td><div class="cell-main">' + escapeHTML(e.secretaria || '—') + '</div></td>' +
       '<td><div class="cell-main">' + escapeHTML(e.municipio) + '</div><div class="cell-sub">' + escapeHTML(e.regiao || '—') + '</div></td>' +
       '<td><div class="cell-main">' + escapeHTML(e.entidade || '—') + '</div><div class="cell-sub">' + escapeHTML(e.cnpj || '—') + '</div></td>' +
       '<td class="cell-obj" title="' + escapeHTML(e.objeto || '') + '"><div class="cell-main">' + escapeHTML(e.objeto || '—') + '</div></td>' +
       '<td class="cell-value">' + fmtMoney(e.valor_empenhado) + '<small>Pago: ' + fmtMoney(e.valor_pago) + '</small></td>' +
-      '<td>' + badgeSituacao(e.situacao) + '</td>' +
+      '<td>' + celulaSituacao(e) + '</td>' +
       '<td class="right">' + (e.situacao_data ? fmtDataCurta(e.situacao_data) : '<span class="faint">—</span>') + '</td>' +
       '<td class="cell-actions"><div class="row-actions">' +
         '<button class="btn-icon" onclick="event.stopPropagation(); abrirModal(' + e.id + ')" title="Editar">' + icone(ICO_EDIT) + '</button>' +
@@ -140,40 +229,87 @@ async function abrirFichaPorId(id) {
   abrirFicha(id);
 }
 
+function _temAlgum() {
+  for (let i = 0; i < arguments.length; i++) {
+    const v = arguments[i];
+    if (v != null && v !== '' && v !== NSC) return true;
+  }
+  return false;
+}
+
+function campoContato(rotulo, valor) {
+  if (valor == null || valor === '' || valor === NSC) return '';
+  return campoFicha(rotulo, valor);
+}
+
 async function abrirFicha(id) {
   const e = emendasCache.find(x => x.id === id);
   if (!e) return;
   fichaAtualId = id;
-  $('ficha-titulo').textContent = 'Emenda nº ' + fmtNumero(e.numero_emenda);
+
+  const ehSN = String(e.numero_emenda || '').startsWith('S/N');
+  $('ficha-titulo').textContent = ehSN
+    ? 'Emenda · ' + (e.ano || '—')
+    : 'Emenda nº ' + (e.numero_emenda || '—');
   $('ficha-sub').textContent = 'Ano ' + (e.ano || '—') + ' · ' + (e.municipio || '—');
+
   const bruta = (e.situacao_bruta && e.situacao_bruta !== e.situacao)
     ? '<span style="font-size:12px;color:var(--muted);">Na planilha: ' + escapeHTML(e.situacao_bruta) + '</span>' : '';
   const nc = 'não consta na planilha';
+
+  // Bloco de contatos: só renderiza o que existe
+  const temResp = _temAlgum(e.resp_nome, e.resp_contato, e.resp_email);
+  const temPf = _temAlgum(e.pf_nome, e.pf_contato, e.pf_email);
+  let blocoContatos = '';
+  if (temResp || temPf) {
+    blocoContatos = '<div class="ficha-section"><div class="ficha-section-title">Contatos</div>';
+    if (temResp) {
+      blocoContatos +=
+        '<div class="ficha-sub">Responsável</div><div class="ficha-grid" style="margin-bottom:12px;">' +
+        campoContato('Nome', e.resp_nome) +
+        campoContato('Telefone', e.resp_contato) +
+        campoContato('E-mail', e.resp_email) + '</div>';
+    }
+    if (temPf) {
+      blocoContatos +=
+        '<div class="ficha-sub">Ponto focal</div><div class="ficha-grid">' +
+        campoContato('Nome', e.pf_nome) +
+        campoContato('Telefone', e.pf_contato) +
+        campoContato('E-mail', e.pf_email) + '</div>';
+    }
+    blocoContatos += '</div>';
+  }
+
+  const campoNumero = ehSN ? '' : campoFicha('Nº da emenda', e.numero_emenda);
+
   $('ficha-body').innerHTML =
-    '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px;">' + badgeSituacao(e.situacao) +
-      (e.dias_parada != null ? '<span style="font-size:12.5px;color:var(--muted);">sem movimento há ' + diasHTML(e.dias_parada) + '</span>' : '') + bruta + '</div>' +
+    '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px;">' +
+      badgeSituacao(e.situacao) +
+      (e.dias_parada != null ? '<span style="font-size:12.5px;color:var(--muted);">sem movimento há ' + diasHTML(e.dias_parada) + '</span>' : '') +
+      bruta +
+    '</div>' +
     '<div class="ficha-section"><div class="ficha-section-title">Identificação</div><div class="ficha-grid">' +
-      campoFicha('Nº da emenda', fmtNumero(e.numero_emenda)) + campoFicha('Ano', e.ano) + campoFicha('Secretaria', e.secretaria, { vazio: nc }) + '</div></div>' +
+      campoNumero + campoFicha('Ano', e.ano) + campoFicha('Secretaria', e.secretaria, { vazio: nc }) + '</div></div>' +
     '<div class="ficha-section"><div class="ficha-section-title">Localidade</div><div class="ficha-grid">' +
       campoFicha('Município', e.municipio) + campoFicha('Região', e.regiao, { vazio: nc }) + campoFicha('Líder', e.lider, { vazio: nc }) + '</div></div>' +
     '<div class="ficha-section"><div class="ficha-section-title">Entidade beneficiária</div><div class="ficha-grid">' +
       campoFicha('Entidade', e.entidade, { vazio: nc }) + campoFicha('CNPJ', e.cnpj, { vazio: nc }) + campoFicha('Ofício', e.oficio, { vazio: nc }) + '</div></div>' +
-    '<div class="ficha-section"><div class="ficha-section-title">Contatos</div>' +
-      '<div class="ficha-sub">Responsável</div><div class="ficha-grid" style="margin-bottom:12px;">' +
-        campoFicha('Nome', e.resp_nome, { vazio: nc }) + campoFicha('Telefone', e.resp_contato, { vazio: nc }) + campoFicha('E-mail', e.resp_email, { vazio: nc }) + '</div>' +
-      '<div class="ficha-sub">Ponto focal</div><div class="ficha-grid">' +
-        campoFicha('Nome', e.pf_nome, { vazio: nc }) + campoFicha('Telefone', e.pf_contato, { vazio: nc }) + campoFicha('E-mail', e.pf_email, { vazio: nc }) + '</div></div>' +
+    blocoContatos +
     '<div class="ficha-section"><div class="ficha-section-title">Detalhes</div>' +
-      campoFicha('Objeto', e.objeto, { full: true, vazio: nc }) + campoFicha('Referência', e.referencia, { full: true, pre: true, vazio: nc }) +
+      campoFicha('Objeto', e.objeto, { full: true, vazio: nc }) +
+      campoFicha('Referência', e.referencia, { full: true, pre: true, vazio: nc }) +
       campoFicha('Justificativa', e.justificativa, { full: true, pre: true, vazio: nc }) +
-      (e.observacoes ? campoFicha('Observações', e.observacoes, { full: true, pre: true }) : '') + '</div>' +
+      (e.observacoes ? campoFicha('Observações', e.observacoes, { full: true, pre: true }) : '') +
+    '</div>' +
     '<div class="ficha-section"><div class="ficha-section-title">Valores e prazos</div><div class="ficha-grid">' +
       '<div class="ficha-field"><label>Valor da emenda</label><div style="font-weight:600;">' + fmtMoney(e.valor_empenhado) + '</div></div>' +
       '<div class="ficha-field"><label>Valor pago</label><div style="font-weight:600;">' + fmtMoney(e.valor_pago) + '</div></div>' +
       campoFicha('Data da última atualização', e.situacao_data ? fmtDataCurta(e.situacao_data) : '') +
       campoFicha('Data de entrada', e.data_entrada ? fmtData(e.data_entrada) : '') +
-      campoFicha('Data do pagamento', e.pago_em ? fmtData(e.pago_em) : '') + '</div></div>' +
+      campoFicha('Data do pagamento', e.pago_em ? fmtData(e.pago_em) : '') +
+    '</div></div>' +
     '<div class="ficha-section"><div class="ficha-section-title">Histórico</div><div class="hist-mini" id="ficha-hist"><span class="hint">Carregando...</span></div></div>';
+
   $('modal-ficha').classList.add('open');
   try {
     const r = await api('/api/logs?emenda_id=' + id + '&limite=15');
@@ -254,11 +390,15 @@ async function salvarEmenda(ev) {
   btn.textContent = 'Salvando...';
   let sucesso = false, msg = 'Erro ao salvar emenda', tipo = 'error';
   try {
-    await api(id ? '/api/emendas/' + id : '/api/emendas',
+    const resp = await api(id ? '/api/emendas/' + id : '/api/emendas',
       { method: id ? 'PUT' : 'POST', json: dados });
     sucesso = true;
-    msg = id ? 'Emenda atualizada' : 'Emenda criada';
     tipo = 'success';
+    if (resp && resp.auto_pago) {
+      msg = 'Emenda atualizada. Valor pago ajustado para ' + fmtMoney(resp.valor_pago);
+    } else {
+      msg = id ? 'Emenda atualizada' : 'Emenda criada';
+    }
   } catch (err) {
     msg = err.status === 409
       ? 'Esta emenda foi alterada por outro usuário. Recarregue a página.'
