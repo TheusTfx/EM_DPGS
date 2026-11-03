@@ -55,7 +55,19 @@ function escapeHTML(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g,
     c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 }
+
+// Deprecated: mantido por compatibilidade. Em novas telas, use numeroDisplayEmenda(e).
 function fmtNumero(n) { return String(n || '').startsWith('S/N-') ? NSC : (n || '—'); }
+
+// Exibe o "número" da emenda respeitando S/N (mostra só o ano).
+// Prefere o campo numero_display vindo do backend; se ausente, replica no client.
+function numeroDisplayEmenda(e) {
+  if (e && e.numero_display) return e.numero_display;
+  const n = String((e && e.numero_emenda) || '');
+  if (n.startsWith('S/N')) return String((e && e.ano) || '—');
+  return n || '—';
+}
+
 function fmtData(d) {
   if (!d) return '—';
   const p = String(d).slice(0, 10).split('-');
@@ -95,16 +107,18 @@ function _comparar(va, vb, dir) {
     : sa.toLowerCase().localeCompare(sb.toLowerCase(), 'pt-BR');
 }
 
-function badgeSituacao(s) {
-  const cls = (s || 'Aguardando').toLowerCase().normalize('NFD')
+// ---------- Situação (badge) ----------
+function _slugSituacao(s) {
+  return (s || 'Aguardando').toLowerCase().normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '-');
-  return '<span class="status status-' + cls + '">' + escapeHTML(s || 'Aguardando') + '</span>';
+}
+function badgeSituacao(s) {
+  return '<span class="status status-' + _slugSituacao(s) + '">' + escapeHTML(s || 'Aguardando') + '</span>';
 }
 function badgeStatusDemanda(s) {
-  const cls = (s || 'Aguardando').toLowerCase().normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '-');
-  return '<span class="status status-' + cls + '">' + escapeHTML(s || 'Aguardando') + '</span>';
+  return '<span class="status status-' + _slugSituacao(s) + '">' + escapeHTML(s || 'Aguardando') + '</span>';
 }
+
 function diasHTML(d) {
   if (d == null) return '<span class="faint">—</span>';
   const cls = d >= 60 ? 'critico' : d >= 30 ? 'alerta' : '';
