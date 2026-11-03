@@ -106,7 +106,12 @@ tbody td { padding: 11px 16px; vertical-align: middle; }
 .cell-obj { max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cell-value { text-align: right; font-variant-numeric: tabular-nums; font-weight: 500; white-space: nowrap; }
 .cell-value small { display: block; font-weight: 400; font-size: 11.5px; color: var(--muted); }
-.cell-actions { width: 84px; text-align: right; }
+.cell-actions { 
+  width: 1%; 
+  min-width: 90px; 
+  text-align: right; 
+  white-space: nowrap; 
+}
 .row-actions { display: flex; gap: 2px; justify-content: flex-end; opacity: 0; transition: opacity .12s; }
 tbody tr:hover .row-actions { opacity: 1; }
 .faint { color: var(--faint); }
