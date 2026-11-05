@@ -9,19 +9,28 @@
 <body>
 
 <div class="login-wrap" id="login-screen" hidden>
-  <form class="login-card" onsubmit="entrar(event)">
-    <div class="login-title" data-nome-sistema>Controle de Emendas</div>
-    <div class="login-sub">Acesso restrito ao gabinete.</div>
+  <form class="login-card" onsubmit="entrar(event)" novalidate>
+    <div class="login-brand">
+      <div class="login-logo" aria-hidden="true">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V10"/><path d="M9 21V10"/><path d="M15 21V10"/><path d="M19 21V10"/><path d="M2 10l10-6 10 6"/></svg>
+      </div>
+      <div class="login-title" data-nome-sistema>Controle de Emendas</div>
+      <div class="login-sub">Acesso restrito ao gabinete.</div>
+    </div>
     <div class="form-group">
       <label for="l-usuario">Usuário</label>
-      <input type="text" id="l-usuario" class="keep-case" autocomplete="username" autocapitalize="none" required>
+      <input type="text" id="l-usuario" class="keep-case" autocomplete="username" autocapitalize="none" spellcheck="false" required>
     </div>
     <div class="form-group">
       <label for="l-senha">Senha</label>
-      <input type="password" id="l-senha" autocomplete="current-password" required>
+      <div class="input-senha">
+        <input type="password" id="l-senha" autocomplete="current-password" required>
+        <button type="button" class="btn-olho" onclick="toggleOlho('l-senha', this)" aria-label="Mostrar senha">Mostrar</button>
+      </div>
     </div>
     <button type="submit" class="btn btn-primary" id="l-btn">Entrar</button>
-    <div class="login-erro" id="l-erro"></div>
+    <div class="login-erro" id="l-erro" role="alert"></div>
+    <div class="login-info" id="l-info"></div>
   </form>
 </div>
 
@@ -43,6 +52,7 @@
         <div class="dropdown" id="user-dropdown" hidden>
           <div class="who" id="user-who"></div>
           <button onclick="abrirSenha()">Alterar senha</button>
+          <button onclick="encerrarOutrasSessoes()">Encerrar outras sessões</button>
           <span id="menu-admin" hidden>
             <button onclick="abrirUsuarios()">Usuários</button>
             <button onclick="abrirRegioes()">Importar lista de regiões</button>
@@ -60,6 +70,7 @@
 <!-- ================= EMENDAS ================= -->
 <section id="view-emendas">
   <div class="page-title">
+    <span>Emendas</span>
   </div>
 
   <!-- KPIs emendas -->
@@ -124,7 +135,7 @@
       <table>
         <thead>
           <tr>
-            <th class="sortable" data-sort="ano">Emenda</th>
+            <th class="sortable sorted-asc" data-sort="ano">Emenda</th>
             <th class="sortable" data-sort="secretaria">Secretaria</th>
             <th class="sortable" data-sort="municipio">Município / Região</th>
             <th class="sortable" data-sort="entidade">Entidade / CNPJ</th>
@@ -387,14 +398,13 @@
         <div class="form-group">
           <label>O que importar</label>
           <select id="imp-aba" onchange="resetarPreview()">
-            <option value="todas">Todas as abas (2026, 2025, 2024 e contatos)</option>
+            <option value="todas">Todas as abas (2026, 2025 e 2024)</option>
             <option value="2026">Somente 2026</option><option value="2025">Somente 2025</option><option value="2024">Somente 2024</option>
-            <option value="contatos">Somente contatos (aba ENTIDADES)</option>
           </select>
         </div>
         <div class="form-group span-2">
           <label>Arquivo (.xlsx)</label>
-          <input type="file" id="imp-arquivo" accept=".xlsx,.xls" onchange="resetarPreview()">
+          <input type="file" id="imp-arquivo" accept=".xlsx" onchange="resetarPreview()">
         </div>
       </div>
       <div id="imp-preview" style="margin-top: 6px;"></div>
@@ -411,33 +421,64 @@
 </div>
 
 <div class="modal-overlay" id="modal-usuarios">
-  <div class="modal" style="max-width: 640px;">
+  <div class="modal" style="max-width: 920px;">
     <div class="modal-header"><div class="modal-title">Usuários</div>
       <button class="btn-icon" onclick="fecharUsuarios()" aria-label="Fechar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
     <div class="modal-body">
-      <table style="min-width:0;"><thead><tr><th>Nome</th><th>Usuário</th><th>Perfil</th><th class="right">Ações</th></tr></thead><tbody id="tbody-usuarios"></tbody></table>
-      <div class="form-section-title" style="margin-top:22px;">Novo usuário</div>
-      <div class="form-grid">
-        <div class="form-group"><label>Nome</label><input type="text" id="u-nome" class="keep-case"></div>
-        <div class="form-group"><label>Usuário (login)</label><input type="text" id="u-usuario" class="keep-case" autocapitalize="none"></div>
-        <div class="form-group"><label>Senha (mín. 6)</label><input type="password" id="u-senha" autocomplete="new-password"></div>
-        <div class="form-group full"><label class="check"><input type="checkbox" id="u-admin"> Administrador (gerencia usuários, regiões e exclusão definitiva)</label></div>
+      <div style="overflow-x:auto;">
+        <table style="min-width:760px;">
+          <thead><tr><th>Nome</th><th>Usuário</th><th>Perfil</th><th>Situação</th><th>Último acesso</th><th class="right">Ações</th></tr></thead>
+          <tbody id="tbody-usuarios"></tbody>
+        </table>
       </div>
+      <div class="form-section-title" id="u-form-titulo" style="margin-top:22px;">Novo usuário</div>
+      <input type="hidden" id="u-id">
+      <div class="form-grid">
+        <div class="form-group"><label>Nome</label><input type="text" id="u-nome" class="keep-case" maxlength="80"></div>
+        <div class="form-group"><label>Usuário (login)</label><input type="text" id="u-usuario" class="keep-case" autocapitalize="none" maxlength="30" placeholder="ex.: maria.silva"></div>
+        <div class="form-group" id="u-grupo-senha"><label>Senha temporária (mín. 8)</label><input type="password" id="u-senha" autocomplete="new-password"></div>
+        <div class="form-group full"><label class="check"><input type="checkbox" id="u-admin"> Administrador (gerencia usuários, regiões e exclusão definitiva)</label></div>
+        <div class="form-group full"><span class="hint" id="u-dica">O usuário será obrigado a trocar a senha no primeiro acesso. Login: 3 a 30 caracteres, só letras, números, ponto, hífen e sublinhado. A senha precisa de letras e números.</span></div>
+      </div>
+      <div class="login-erro" id="u-erro" role="alert"></div>
     </div>
-    <div class="modal-footer"><button class="btn btn-secondary" onclick="fecharUsuarios()">Fechar</button><button class="btn btn-primary" onclick="criarUsuario()">Adicionar usuário</button></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="fecharUsuarios()">Fechar</button>
+      <button class="btn btn-secondary" id="u-cancelar" onclick="resetarFormUsuario()" hidden>Cancelar edição</button>
+      <button class="btn btn-primary" id="u-salvar" onclick="salvarUsuario()">Adicionar usuário</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-redef">
+  <div class="modal" style="max-width: 420px;">
+    <div class="modal-header"><div class="modal-title">Redefinir senha</div>
+      <button class="btn-icon" onclick="fecharRedef()" aria-label="Fechar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+    <div class="modal-body">
+      <input type="hidden" id="redef-id">
+      <p style="margin-bottom:12px;" id="redef-quem"></p>
+      <div class="form-group" style="margin-bottom:10px;"><label>Nova senha temporária (mín. 8)</label><input type="password" id="redef-senha" autocomplete="new-password"></div>
+      <label class="check"><input type="checkbox" onchange="mostrarSenhas(['redef-senha'], this.checked)"> Mostrar senha</label>
+      <div class="hint" style="margin-top:10px;">O usuário será desconectado e precisará trocar esta senha no próximo acesso.</div>
+      <div class="login-erro" id="redef-erro" role="alert"></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-secondary" onclick="fecharRedef()">Cancelar</button><button class="btn btn-primary" onclick="salvarRedefinicao()">Redefinir</button></div>
   </div>
 </div>
 
 <div class="modal-overlay" id="modal-senha">
-  <div class="modal" style="max-width: 420px;">
-    <div class="modal-header"><div class="modal-title">Alterar senha</div>
-      <button class="btn-icon" onclick="fecharSenha()" aria-label="Fechar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+  <div class="modal" style="max-width: 440px;">
+    <div class="modal-header"><div class="modal-title" id="senha-titulo">Alterar senha</div>
+      <button class="btn-icon" id="senha-fechar" onclick="fecharSenha()" aria-label="Fechar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
     <div class="modal-body">
+      <div class="aviso-box" id="senha-aviso" hidden>Por segurança, defina uma nova senha antes de continuar. Use a senha que você recebeu como "senha atual".</div>
       <div class="form-group" style="margin-bottom:12px;"><label>Senha atual</label><input type="password" id="s-atual" autocomplete="current-password"></div>
-      <div class="form-group" style="margin-bottom:12px;"><label>Nova senha (mín. 6 caracteres)</label><input type="password" id="s-nova" autocomplete="new-password"></div>
-      <div class="form-group"><label>Repita a nova senha</label><input type="password" id="s-nova2" autocomplete="new-password"></div>
+      <div class="form-group" style="margin-bottom:12px;"><label>Nova senha (mín. 8, com letras e números)</label><input type="password" id="s-nova" autocomplete="new-password"></div>
+      <div class="form-group" style="margin-bottom:10px;"><label>Repita a nova senha</label><input type="password" id="s-nova2" autocomplete="new-password"></div>
+      <label class="check"><input type="checkbox" id="senha-mostrar" onchange="mostrarSenhas(['s-atual','s-nova','s-nova2'], this.checked)"> Mostrar senhas</label>
+      <div class="login-erro" id="senha-erro" role="alert"></div>
     </div>
-    <div class="modal-footer"><button class="btn btn-secondary" onclick="fecharSenha()">Cancelar</button><button class="btn btn-primary" onclick="salvarSenha()">Salvar</button></div>
+    <div class="modal-footer"><button class="btn btn-secondary" id="senha-cancelar" onclick="fecharSenha()">Cancelar</button><button class="btn btn-primary" id="senha-salvar" onclick="salvarSenha()">Salvar</button></div>
   </div>
 </div>
 
