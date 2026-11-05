@@ -4,7 +4,7 @@ from flask import g
 from datetime import datetime
 
 from .config import DATABASE_URL
-from .passwords import _hash_senha
+from .passwords import _hash_senha, _verifica_senha
 
 
 def get_db():
@@ -29,6 +29,7 @@ def init_db():
             _criar_tabelas(cur)
             _migrar_emendas(cur)
             _migrar_logs(cur)
+            _migrar_usuarios(cur)
             _criar_admin(cur)
             _limpar_sessoes(cur)
         conn.commit()
@@ -126,16 +127,32 @@ def _migrar_logs(cur):
     cur.execute("ALTER TABLE logs ADD COLUMN IF NOT EXISTS demanda_id INTEGER")
 
 
+def _migrar_usuarios(cur):
+    """Controle de acesso: ativação, troca obrigatória de senha e bloqueio por tentativas."""
+    cur.execute("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS ativo BOOLEAN DEFAULT true")
+    cur.execute("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS deve_trocar_senha BOOLEAN DEFAULT false")
+    cur.execute("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS tentativas_falhas INTEGER DEFAULT 0")
+    cur.execute("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS bloqueado_ate TIMESTAMP")
+    cur.execute("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS ultimo_login TEXT")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_sessoes_usuario ON sessoes (usuario_id)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_sessoes_expira ON sessoes (expira_em)")
+
+
 def _criar_admin(cur):
-    cur.execute("SELECT 1 FROM usuarios WHERE LOWER(usuario) = 'admin'")
-    if not cur.fetchone():
-        cur.execute('''INSERT INTO usuarios (nome, usuario, senha_hash, admin, criado_em)
-                       VALUES ('Administrador','admin',%s,true,%s)''',
+    cur.execute('''SELECT id, senha_hash, COALESCE(deve_trocar_senha, false) AS deve
+                   FROM usuarios WHERE LOWER(usuario) = 'admin' ''')
+    row = cur.fetchone()
+    if not row:
+        cur.execute('''INSERT INTO usuarios
+                         (nome, usuario, senha_hash, admin, criado_em, ativo, deve_trocar_senha)
+                       VALUES ('Administrador','admin',%s,true,%s,true,true)''',
                     (_hash_senha('admin123'),
                      datetime.now().isoformat(timespec='seconds')))
-        print("-> admin/admin123 criado. TROQUE A SENHA!")
+        print("-> admin/admin123 criado. A troca de senha sera exigida no primeiro acesso.")
+    elif not row['deve'] and _verifica_senha('admin123', row['senha_hash']):
+        cur.execute("UPDATE usuarios SET deve_trocar_senha = true WHERE id = %s", (row['id'],))
+        print("AVISO: admin ainda usa a senha padrao. Troca obrigatoria ativada.")
 
 
 def _limpar_sessoes(cur):
-    cur.execute("DELETE FROM sessoes WHERE expira_em IS NOT NULL "
-                "AND expira_em < NOW() - INTERVAL '30 days'")
+    cur.execute("DELETE FROM sessoes WHERE expira_em IS NOT NULL AND expira_em < NOW()")
