@@ -12,7 +12,8 @@ let auth = null;
 let emendasCache = [];
 let demandasCache = [];
 let debounceTimer = null, logTimer = null, debounceTimerDem = null;
-let sortColumn = null, sortDirection = 'desc';
+// Emendas começam ordenadas pelo ano da emenda (coluna "Emenda"), crescente
+let sortColumn = 'ano', sortDirection = 'asc';
 let sortColumnDem = null, sortDirectionDem = 'desc';
 let fichaAtualId = null;
 let fichaAtualDemandaId = null;
@@ -21,6 +22,7 @@ let regioesMap = {};
 let previewOk = false;
 let logsOffset = 0;
 let painelDados = null;
+let senhaObrigatoria = false;
 const painelModo = { lider: 'n', municipio: 'n', regiao: 'n', secretaria: 'n' };
 
 // ---------- Utilitários ----------
@@ -55,19 +57,7 @@ function escapeHTML(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g,
     c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 }
-
-// Deprecated: mantido por compatibilidade. Em novas telas, use numeroDisplayEmenda(e).
 function fmtNumero(n) { return String(n || '').startsWith('S/N-') ? NSC : (n || '—'); }
-
-// Exibe o "número" da emenda respeitando S/N (mostra só o ano).
-// Prefere o campo numero_display vindo do backend; se ausente, replica no client.
-function numeroDisplayEmenda(e) {
-  if (e && e.numero_display) return e.numero_display;
-  const n = String((e && e.numero_emenda) || '');
-  if (n.startsWith('S/N')) return String((e && e.ano) || '—');
-  return n || '—';
-}
-
 function fmtData(d) {
   if (!d) return '—';
   const p = String(d).slice(0, 10).split('-');
@@ -107,18 +97,16 @@ function _comparar(va, vb, dir) {
     : sa.toLowerCase().localeCompare(sb.toLowerCase(), 'pt-BR');
 }
 
-// ---------- Situação (badge) ----------
-function _slugSituacao(s) {
-  return (s || 'Aguardando').toLowerCase().normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '-');
-}
 function badgeSituacao(s) {
-  return '<span class="status status-' + _slugSituacao(s) + '">' + escapeHTML(s || 'Aguardando') + '</span>';
+  const cls = (s || 'Aguardando').toLowerCase().normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '-');
+  return '<span class="status status-' + cls + '">' + escapeHTML(s || 'Aguardando') + '</span>';
 }
 function badgeStatusDemanda(s) {
-  return '<span class="status status-' + _slugSituacao(s) + '">' + escapeHTML(s || 'Aguardando') + '</span>';
+  const cls = (s || 'Aguardando').toLowerCase().normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '-');
+  return '<span class="status status-' + cls + '">' + escapeHTML(s || 'Aguardando') + '</span>';
 }
-
 function diasHTML(d) {
   if (d == null) return '<span class="faint">—</span>';
   const cls = d >= 60 ? 'critico' : d >= 30 ? 'alerta' : '';
@@ -160,8 +148,19 @@ async function api(path, opts) {
     sair(true);
     throw new Error('Sessão expirada. Entre novamente.');
   }
+  if (res.status === 403 && data && data.trocar_senha) {
+    if (auth) auth.deve_trocar_senha = true;
+    if (!senhaObrigatoria) abrirSenha(true);
+    throw new Error(data.erro);
+  }
   if (!res.ok) {
-    const err = new Error((data && data.erro) || ('Erro ' + res.status));
+    let msg = data && data.erro;
+    if (!msg) {
+      msg = res.status >= 500
+        ? 'O servidor não respondeu (erro ' + res.status + '). Tente novamente em instantes.'
+        : 'Erro ' + res.status;
+    }
+    const err = new Error(msg);
     err.status = res.status;
     err.data = data;
     throw err;
@@ -170,45 +169,85 @@ async function api(path, opts) {
 }
 
 // ---------- Auth ----------
+function toggleOlho(id, btn) {
+  const el = $(id);
+  const mostrar = el.type === 'password';
+  el.type = mostrar ? 'text' : 'password';
+  btn.textContent = mostrar ? 'Ocultar' : 'Mostrar';
+  btn.setAttribute('aria-label', mostrar ? 'Ocultar senha' : 'Mostrar senha');
+}
+
 function mostrarLogin() {
   $('app').hidden = true;
   $('login-screen').hidden = false;
   $('l-senha').value = '';
+  $('l-senha').type = 'password';
+  const olho = document.querySelector('#login-screen .btn-olho');
+  if (olho) { olho.textContent = 'Mostrar'; olho.setAttribute('aria-label', 'Mostrar senha'); }
   setTimeout(() => $('l-usuario').focus(), 50);
 }
 
 async function entrar(ev) {
   ev.preventDefault();
   const btn = $('l-btn');
-  btn.disabled = true;
+  if (btn.disabled) return;
+  const usuario = $('l-usuario').value.trim();
+  const senha = $('l-senha').value;
   $('l-erro').textContent = '';
+  $('l-info').textContent = '';
+  if (!usuario || !senha) {
+    $('l-erro').textContent = 'Informe usuário e senha.';
+    return;
+  }
+  btn.disabled = true;
+  btn.textContent = 'Entrando…';
+  // servidor gratuito do Render pode levar alguns segundos para acordar
+  const aviso = setTimeout(() => {
+    $('l-info').textContent = 'O servidor pode estar iniciando. Aguarde alguns segundos…';
+  }, 4000);
+  let ok = false;
   try {
-    const d = await api('/api/login', {
-      method: 'POST',
-      json: { usuario: $('l-usuario').value, senha: $('l-senha').value }
-    });
+    const d = await api('/api/login', { method: 'POST', json: { usuario, senha } });
     auth = d;
     localStorage.setItem(CHAVE_AUTH, JSON.stringify(d));
-    iniciarApp();
+    ok = true;
   } catch (err) {
-    $('l-erro').textContent = err.message;
+    $('l-erro').textContent = err.status
+      ? err.message
+      : 'Não foi possível conectar ao servidor. Verifique a internet e tente novamente.';
+    $('l-senha').value = '';
+    $('l-senha').focus();
   } finally {
+    clearTimeout(aviso);
+    $('l-info').textContent = '';
     btn.disabled = false;
+    btn.textContent = 'Entrar';
   }
+  if (ok) iniciarApp();
 }
 
 function sair(expirou) {
+  if (!expirou && auth && auth.token) {
+    // encerra a sessão no servidor (sem esperar resposta)
+    fetch('/api/logout', { method: 'POST', headers: { 'Authorization': 'Bearer ' + auth.token } })
+      .catch(() => {});
+  }
   localStorage.removeItem(CHAVE_AUTH);
   auth = null;
+  senhaObrigatoria = false;
   // limpa dados em memória e volta ao modo emendas
   emendasCache = [];
   demandasCache = [];
   painelDados = null;
   _checked('mostrar-demandas', false);
   _checked('mostrar-demandas-dem', false);
+  ['modal-senha', 'modal-usuarios', 'modal-redef'].forEach(id => {
+    const m = $(id);
+    if (m) m.classList.remove('open');
+  });
   $('user-dropdown').hidden = true;
   mostrarLogin();
-  if (expirou) $('l-erro').textContent = 'Sessão expirada. Entre novamente.';
+  $('l-erro').textContent = expirou ? 'Sessão expirada. Entre novamente.' : '';
 }
 
 function toggleMenu(ev) {
@@ -222,12 +261,32 @@ document.addEventListener('click', () => {
 });
 
 async function iniciarApp() {
+  // confirma a sessão no servidor e atualiza perfil / exigência de troca de senha
+  try {
+    const me = await api('/api/me');
+    auth = Object.assign({}, auth, me);
+    localStorage.setItem(CHAVE_AUTH, JSON.stringify(auth));
+  } catch (err) {
+    if (auth) {
+      mostrarLogin();
+      $('l-erro').textContent = err.status
+        ? err.message
+        : 'Não foi possível conectar ao servidor. Tente novamente.';
+    }
+    return;
+  }
+
   $('login-screen').hidden = true;
   $('app').hidden = false;
   $('user-btn').textContent = auth.nome;
   $('user-who').textContent = auth.nome + ' (' + auth.usuario + ')'
     + (auth.admin ? ' · administrador' : '');
   $('menu-admin').hidden = !auth.admin;
+
+  if (auth.deve_trocar_senha) {
+    abrirSenha(true);
+    return;
+  }
   await carregarRegioes();
   // mostrarView já carrega emendas/demandas e seus filtros
   mostrarView('emendas');
