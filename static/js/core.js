@@ -97,15 +97,16 @@ function _comparar(va, vb, dir) {
     : sa.toLowerCase().localeCompare(sb.toLowerCase(), 'pt-BR');
 }
 
-function badgeSituacao(s) {
-  const cls = (s || 'Aguardando').toLowerCase().normalize('NFD')
+// Slug usado nas classes CSS de situação/status (ex.: "Enviado ao Estado" -> "enviado-ao-estado")
+function _slugSituacao(s) {
+  return String(s || 'Aguardando').toLowerCase().normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '-');
-  return '<span class="status status-' + cls + '">' + escapeHTML(s || 'Aguardando') + '</span>';
+}
+function badgeSituacao(s) {
+  return '<span class="status status-' + _slugSituacao(s) + '">' + escapeHTML(s || 'Aguardando') + '</span>';
 }
 function badgeStatusDemanda(s) {
-  const cls = (s || 'Aguardando').toLowerCase().normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '-');
-  return '<span class="status status-' + cls + '">' + escapeHTML(s || 'Aguardando') + '</span>';
+  return '<span class="status status-' + _slugSituacao(s) + '">' + escapeHTML(s || 'Aguardando') + '</span>';
 }
 function diasHTML(d) {
   if (d == null) return '<span class="faint">—</span>';
